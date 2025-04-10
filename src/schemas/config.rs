@@ -1,21 +1,27 @@
 use crate::schemas::utils::entry_map::{self, VerboseEntry};
-use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize, de::IgnoredAny};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
-#[serde(rename = "kebab-case")]
+#[schemars(rename = "config.toml")]
 pub struct Config {
-    #[serde(with = "entry_map", default)]
+    #[allow(dead_code)]
+    #[serde(rename = "$schema", skip_serializing, default)]
+    #[schemars(with = "String", default)]
+    schema: IgnoredAny,
+    #[serde(deserialize_with = "entry_map::deserialize", default)]
     hosts: BTreeMap<String, Host>,
-    #[serde(with = "entry_map", default)]
+    #[serde(deserialize_with = "entry_map::deserialize", default)]
     checkout_dirs: BTreeMap<String, CheckoutDir>,
-    #[serde(with = "entry_map", default)]
+    #[serde(deserialize_with = "entry_map::deserialize", default)]
     repo_storages: BTreeMap<String, RepoStorage>,
-    #[serde(with = "entry_map", default)]
+    #[serde(deserialize_with = "entry_map::deserialize", default)]
     openers: BTreeMap<String, Opener>,
 }
 
@@ -61,10 +67,15 @@ impl Config {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "host")]
+#[schemars(transform = Self::transform_schema)]
 pub struct Host {
     pub host: String,
-    pub aliases: BTreeSet<String>,
+    #[serde(default)]
+    pub alias: BTreeSet<String>,
     pub default: Option<bool>,
 }
 
@@ -74,13 +85,17 @@ impl VerboseEntry<'_> for Host {
     fn from_short(host: Self::Short) -> Self {
         Self {
             host,
-            aliases: BTreeSet::new(),
+            alias: BTreeSet::new(),
             default: None,
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "checkout-dir")]
+#[schemars(transform = Self::transform_schema)]
 pub struct CheckoutDir {
     pub path: PathBuf,
     pub default: Option<bool>,
@@ -97,7 +112,11 @@ impl VerboseEntry<'_> for CheckoutDir {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "repo-storage")]
+#[schemars(transform = Self::transform_schema)]
 pub struct RepoStorage {
     pub path: PathBuf,
     pub default: Option<bool>,
@@ -114,16 +133,25 @@ impl VerboseEntry<'_> for RepoStorage {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "opener")]
+#[schemars(transform = Self::transform_schema)]
 pub struct Opener {
-    cmd: Vec<String>,
+    command: Vec<String>,
+    working_directory: Option<PathBuf>,
     default: Option<bool>,
 }
 
 impl VerboseEntry<'_> for Opener {
     type Short = Vec<String>;
 
-    fn from_short(cmd: Self::Short) -> Self {
-        Self { cmd, default: None }
+    fn from_short(command: Self::Short) -> Self {
+        Self {
+            command,
+            working_directory: None,
+            default: None,
+        }
     }
 }

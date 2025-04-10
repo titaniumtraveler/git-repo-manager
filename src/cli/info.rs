@@ -2,10 +2,18 @@ use crate::{cli::GlobalArgs, schemas::config::Config};
 use clap::Subcommand;
 use std::io::{self, BufWriter};
 
+pub use self::schema::Schema;
+
+mod schema;
+
 #[derive(Debug, Subcommand, Clone)]
 pub enum Info {
     Config,
     Paths,
+    Schema {
+        #[clap(subcommand)]
+        schema: Schema,
+    },
 }
 
 impl Info {
@@ -18,6 +26,7 @@ impl Info {
                 println!();
                 Ok(())
             }
+            Info::Schema { schema } => schema.run(),
             Info::Paths => {
                 let paths = global_args.paths();
                 serde_json::to_writer(BufWriter::new(io::stdout()), &paths)?;

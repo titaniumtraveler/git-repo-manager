@@ -1,25 +1,33 @@
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Visitor};
-use std::{collections::BTreeMap, marker::PhantomData};
-
-use super::{
+use crate::schemas::utils::{
     forward_visit::ForwardToVisitor,
     map_visitor::MapVisitorExt,
     overlay_visitor::{MapOverlay, OverlayVisitor},
 };
+use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
+use serde::{Deserialize, Deserializer, de::Visitor};
+use std::{collections::BTreeMap, marker::PhantomData, mem};
 
 pub trait VerboseEntry<'de>: Deserialize<'de> {
-    type Short: Deserialize<'de>;
+    type Short: Deserialize<'de> + JsonSchema;
     fn from_short(short: Self::Short) -> Self;
-}
+    fn transform_schema(schema: &mut Schema) {
+        // This could lead to unnessary schema duplication,
+        // but we don't really have a choice ...
+        let mut generator = SchemaGenerator::default();
 
-#[allow(clippy::ptr_arg)]
-pub fn serialize<K, V, S>(val: &BTreeMap<K, V>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-    K: Serialize,
-    V: Serialize,
-{
-    serializer.collect_map(val.iter())
+        let short = generator.subschema_for::<Self::Short>();
+        let verbose = mem::take(schema);
+
+        *schema = json_schema! {
+            {
+                "oneOf": [
+                    short,
+                    verbose,
+                ]
+            }
+
+        };
+    }
 }
 
 pub fn deserialize<'de, K, V, D>(deserializer: D) -> Result<BTreeMap<K, V>, D::Error>
