@@ -1,4 +1,7 @@
-use crate::schemas::utils::entry_map::{self, VerboseEntry};
+use crate::{
+    schemas::utils::entry_map::{self, VerboseEntry},
+    utils,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize, de::IgnoredAny};
 use std::{
@@ -27,9 +30,7 @@ pub struct Config {
 
 impl Config {
     pub fn read_from_path(path: &Path) -> anyhow::Result<Self> {
-        let str = std::fs::read_to_string(path)?;
-        let config = toml::from_str(&str)?;
-        Ok(config)
+        utils::read_toml_from_path(path)
     }
 
     pub fn resolve_defaults(&mut self) {

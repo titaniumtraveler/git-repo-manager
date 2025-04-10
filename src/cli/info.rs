@@ -1,6 +1,5 @@
-use crate::{cli::GlobalArgs, schemas::config::Config};
+use crate::{cli::GlobalArgs, schemas::config::Config, utils::write_json_to_stdout};
 use clap::Subcommand;
-use std::io::{self, BufWriter};
 
 pub use self::schema::Schema;
 
@@ -22,15 +21,13 @@ impl Info {
             Info::Config => {
                 let mut config = Config::read_from_path(global_args.config_file())?;
                 config.resolve_defaults();
-                serde_json::to_writer(BufWriter::new(io::stdout()), &config)?;
-                println!();
+                write_json_to_stdout(&config)?;
                 Ok(())
             }
             Info::Schema { schema } => schema.run(),
             Info::Paths => {
                 let paths = global_args.paths();
-                serde_json::to_writer(BufWriter::new(io::stdout()), &paths)?;
-                println!();
+                write_json_to_stdout(&paths)?;
                 Ok(())
             }
         }
