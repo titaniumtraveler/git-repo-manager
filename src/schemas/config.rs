@@ -21,9 +21,9 @@ pub struct Config {
     #[serde(deserialize_with = "entry_map::deserialize", default)]
     hosts: BTreeMap<String, Host>,
     #[serde(deserialize_with = "entry_map::deserialize", default)]
-    checkout_dirs: BTreeMap<String, CheckoutDir>,
-    #[serde(deserialize_with = "entry_map::deserialize", default)]
     repo_storages: BTreeMap<String, RepoStorage>,
+    #[serde(deserialize_with = "entry_map::deserialize", default)]
+    checkout_dirs: BTreeMap<String, CheckoutDir>,
     #[serde(deserialize_with = "entry_map::deserialize", default)]
     openers: BTreeMap<String, Opener>,
 }
