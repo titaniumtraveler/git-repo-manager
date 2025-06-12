@@ -20,13 +20,17 @@ impl CloneCommand {
         let (_, storage) = config
             .storage
             .iter()
-            .find(|(_, storage)| storage.default.unwrap_or(false))
+            .find(|(_, storage)| storage.default && storage.path.is_some())
             .context("failed to retrieve repo storage")?;
 
-        let mut storage_path = PathBuf::from(&storage.path);
+        let mut storage_path = storage
+            .path
+            .as_deref()
+            .expect("a storage path that is `Some(_)`")
+            .to_path_buf();
 
         storage_path.push("manifest.json");
-        let mut manifest: Option<RepoManifest> = read_json_from_path(&storage_path)?;
+        let _manifest: Option<RepoManifest> = read_json_from_path(&storage_path)?;
         storage_path.pop();
 
         todo!()

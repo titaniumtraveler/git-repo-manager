@@ -1,7 +1,10 @@
-use crate::schemas::{config::Merge, utils::entry_map::VerboseEntry};
+use crate::schemas::{
+    config::{Merge, merge::MergeEntry},
+    utils::entry_map::VerboseEntry,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{mem, path::PathBuf};
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -11,7 +14,8 @@ use std::path::PathBuf;
 pub struct Open {
     pub command: Vec<String>,
     pub working_directory: Option<PathBuf>,
-    pub default: Option<bool>,
+    #[serde(default)]
+    pub default: bool,
     #[serde(default)]
     pub merge: Merge,
 }
@@ -23,6 +27,40 @@ impl VerboseEntry<'_> for Open {
         Self {
             command,
             ..Default::default()
+        }
+    }
+}
+
+impl MergeEntry for Open {
+    fn merge_config(&self) -> &Merge {
+        &self.merge
+    }
+
+    fn merge_config_mut(&mut self) -> &mut Merge {
+        &mut self.merge
+    }
+
+    fn merge_entries(
+        &mut self,
+        Open {
+            command,
+            working_directory,
+            default,
+            merge: _,
+        }: Self,
+    ) {
+        let s = mem::take(self);
+        *self = Self {
+            command: {
+                if !command.is_empty() {
+                    command
+                } else {
+                    s.command
+                }
+            },
+            working_directory: working_directory.or(s.working_directory),
+            default: default | s.default,
+            merge: s.merge,
         }
     }
 }
