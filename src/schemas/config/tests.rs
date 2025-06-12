@@ -13,7 +13,7 @@ fn default_config() -> PathBuf {
 #[test]
 fn parse_default() -> anyhow::Result<()> {
     let path = default_config();
-    let _config = Config::read_from_path(&path)
+    let _config = Config::from_file(&path)
         .with_context(|| anyhow!("failed to parse schema at `{path}`", path = path.display()))?;
     Ok(())
 }

@@ -32,40 +32,40 @@ pub trait AppStateType {
     type Checkouts;
 
     type SetAppName<T>: AppStateType<
-        AppName = T,
-        ProjectDirs = Self::ProjectDirs,
-        Defaults = Self::Defaults,
-        Storages = Self::Storages,
-        Checkouts = Self::Checkouts,
-    >;
+            AppName = T,
+            ProjectDirs = Self::ProjectDirs,
+            Defaults = Self::Defaults,
+            Storages = Self::Storages,
+            Checkouts = Self::Checkouts,
+        >;
     type SetProjectDirs<T>: AppStateType<
-        AppName = Self::AppName,
-        ProjectDirs = T,
-        Defaults = Self::Defaults,
-        Storages = Self::Storages,
-        Checkouts = Self::Checkouts,
-    >;
+            AppName = Self::AppName,
+            ProjectDirs = T,
+            Defaults = Self::Defaults,
+            Storages = Self::Storages,
+            Checkouts = Self::Checkouts,
+        >;
     type SetDefaults<T>: AppStateType<
-        AppName = Self::AppName,
-        ProjectDirs = Self::ProjectDirs,
-        Defaults = T,
-        Storages = Self::Storages,
-        Checkouts = Self::Checkouts,
-    >;
+            AppName = Self::AppName,
+            ProjectDirs = Self::ProjectDirs,
+            Defaults = T,
+            Storages = Self::Storages,
+            Checkouts = Self::Checkouts,
+        >;
     type SetStorages<T>: AppStateType<
-        AppName = Self::AppName,
-        ProjectDirs = Self::ProjectDirs,
-        Defaults = Self::Defaults,
-        Storages = T,
-        Checkouts = Self::Checkouts,
-    >;
+            AppName = Self::AppName,
+            ProjectDirs = Self::ProjectDirs,
+            Defaults = Self::Defaults,
+            Storages = T,
+            Checkouts = Self::Checkouts,
+        >;
     type SetCheckouts<T>: AppStateType<
-        AppName = Self::AppName,
-        ProjectDirs = Self::ProjectDirs,
-        Defaults = Self::Defaults,
-        Storages = Self::Storages,
-        Checkouts = T,
-    >;
+            AppName = Self::AppName,
+            ProjectDirs = Self::ProjectDirs,
+            Defaults = Self::Defaults,
+            Storages = Self::Storages,
+            Checkouts = T,
+        >;
 }
 
 pub struct Type<
@@ -259,7 +259,7 @@ impl Defaults {
 
 impl Paths {
     pub fn load_config_from_path(self, config_path: PathBuf) -> anyhow::Result<ConfigData> {
-        let config = Config::read_from_path(&config_path)?;
+        let config = Config::from_file(&config_path)?;
 
         Ok(ConfigData {
             paths: self,

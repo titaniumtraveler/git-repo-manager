@@ -5,6 +5,7 @@ use crate::{
     },
     utils,
 };
+use directories_next::ProjectDirs;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize, de::IgnoredAny};
 use std::{
@@ -15,7 +16,7 @@ use std::{
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "config.toml")]
@@ -35,7 +36,44 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn read_from_path(path: &Path) -> anyhow::Result<Self> {
+    pub fn default_config(env: &ProjectDirs) -> Self {
+        let default = Self::default();
+        Self {
+            storage: {
+                let mut storage = default.storage;
+                storage.insert(
+                    "default".to_owned(),
+                    Storage {
+                        path: PathBuf::from_iter([
+                            env.data_dir(),
+                            "storage/${host/name}/${repo/url/hash}.git".as_ref(),
+                        ]),
+                        default: Some(true),
+                    },
+                );
+                storage
+            },
+            checkout: {
+                let mut checkout = default.checkout;
+
+                checkout.insert(
+                    "default".to_owned(),
+                    Checkout {
+                        path: PathBuf::from_iter([
+                            env.data_dir(),
+                            "checkout/${host/name}/{$repo/name}".as_ref(),
+                        ]),
+                        default: Some(true),
+                    },
+                );
+
+                checkout
+            },
+            ..default
+        }
+    }
+
+    pub fn from_file(path: &Path) -> anyhow::Result<Self> {
         utils::read_toml_from_path(path)
     }
 

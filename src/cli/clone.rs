@@ -14,7 +14,7 @@ pub struct CloneCommand {
 
 impl CloneCommand {
     pub fn run(self, global_args: GlobalArgs) -> anyhow::Result<()> {
-        let mut config = Config::read_from_path(global_args.config_file())?;
+        let mut config = Config::from_file(global_args.config_file())?;
         config.resolve_defaults();
 
         let (_, storage) = config
