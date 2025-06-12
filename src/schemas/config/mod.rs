@@ -1,5 +1,9 @@
 use crate::{
-    schemas::{directories::PROJECT_PATHS, utils::entry_map},
+    schemas::{
+        config::merge::{Behavior, OnlyIf},
+        directories::PROJECT_PATHS,
+        utils::entry_map,
+    },
     utils,
 };
 use directories_next::ProjectDirs;
@@ -10,10 +14,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub use self::{checkout::Checkout, host::Host, open::Open, storage::Storage};
+pub use self::{checkout::Checkout, host::Host, merge::Merge, open::Open, storage::Storage};
 
 pub mod checkout;
 pub mod host;
+pub mod merge;
 pub mod open;
 pub mod storage;
 
@@ -42,6 +47,11 @@ pub struct Config {
 
 impl Config {
     pub fn default_config(env: &ProjectDirs) -> Self {
+        const MERGE_DEFAULT: Merge = Merge {
+            only_if: OnlyIf::NotPresent,
+            behavior: Behavior::Replace,
+        };
+
         let default = Self::default();
         Self {
             storage: {
@@ -54,6 +64,7 @@ impl Config {
                             "storage/${host/name}/${repo/url/hash}.git".as_ref(),
                         ]),
                         default: Some(true),
+                        merge: MERGE_DEFAULT,
                     },
                 );
                 storage
@@ -69,6 +80,7 @@ impl Config {
                             "checkout/${host/name}/{$repo/name}".as_ref(),
                         ]),
                         default: Some(true),
+                        merge: MERGE_DEFAULT,
                     },
                 );
 
@@ -101,10 +113,14 @@ impl Config {
 
         if self.storage.is_empty() {
             self.storage.insert(
-                "DEFAULT".to_owned(),
+                "default".to_owned(),
                 Storage {
                     path: PROJECT_PATHS.default_storage_dir().to_owned(),
                     default: Some(true),
+                    merge: Merge {
+                        only_if: OnlyIf::NotPresent,
+                        behavior: Behavior::Replace,
+                    },
                 },
             );
         }

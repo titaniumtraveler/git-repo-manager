@@ -1,9 +1,9 @@
-use crate::schemas::utils::entry_map::VerboseEntry;
+use crate::schemas::{config::Merge, utils::entry_map::VerboseEntry};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "host")]
@@ -13,6 +13,8 @@ pub struct Host {
     #[serde(default)]
     pub alias: BTreeSet<String>,
     pub default: Option<bool>,
+    #[serde(default)]
+    pub merge: Merge,
 }
 
 impl VerboseEntry<'_> for Host {
@@ -21,8 +23,7 @@ impl VerboseEntry<'_> for Host {
     fn from_short(host: Self::Short) -> Self {
         Self {
             host,
-            alias: BTreeSet::new(),
-            default: None,
+            ..Default::default()
         }
     }
 }

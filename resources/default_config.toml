@@ -24,3 +24,16 @@ default = ["bash"]
 [open.notes]
 command = ["bash"]
 working-directory = "${repo/file-path}/notes"
+
+[open.notes.merge]
+# only apply config entry if entry is present
+# only-if = "present"
+
+# only apply config entry if entry is not present
+# only-if = "not-present"
+
+# apply config entry regardless whether the entry is present
+only-if = ""
+
+behavior = "merge"
+# behavior = "replace"

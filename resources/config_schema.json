@@ -1,1 +1,219 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"config.toml","type":"object","properties":{"$schema":{"type":"string","writeOnly":true},"checkout":{"type":"object","additionalProperties":{"$ref":"#/$defs/checkout-dir"},"default":{}},"host":{"type":"object","additionalProperties":{"$ref":"#/$defs/host"},"default":{}},"open":{"type":"object","additionalProperties":{"$ref":"#/$defs/open"},"default":{}},"storage":{"type":"object","additionalProperties":{"$ref":"#/$defs/storage"},"default":{}}},"additionalProperties":false,"$defs":{"checkout-dir":{"oneOf":[{"type":"string"},{"type":"object","properties":{"default":{"type":["boolean","null"]},"path":{"type":"string"}},"additionalProperties":false,"required":["path"]}]},"host":{"oneOf":[{"type":"string"},{"type":"object","properties":{"alias":{"type":"array","default":[],"items":{"type":"string"},"uniqueItems":true},"default":{"type":["boolean","null"]},"host":{"type":"string"}},"additionalProperties":false,"required":["host"]}]},"open":{"oneOf":[{"type":"array","items":{"type":"string"}},{"type":"object","properties":{"command":{"type":"array","items":{"type":"string"}},"default":{"type":["boolean","null"]},"working-directory":{"type":["string","null"]}},"additionalProperties":false,"required":["command"]}]},"storage":{"oneOf":[{"type":"string"},{"type":"object","properties":{"default":{"type":["boolean","null"]},"path":{"type":"string"}},"additionalProperties":false,"required":["path"]}]}}}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "config.toml",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "writeOnly": true
+    },
+    "checkout": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/checkout-dir"
+      },
+      "default": {}
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/host"
+      },
+      "default": {}
+    },
+    "open": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/open"
+      },
+      "default": {}
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/storage"
+      },
+      "default": {}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "checkout-dir": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "default": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "merge": {
+              "$ref": "#/$defs/merge",
+              "default": {
+                "behavior": "merge",
+                "only-if": ""
+              }
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "path"
+          ]
+        }
+      ]
+    },
+    "host": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "alias": {
+              "type": "array",
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "uniqueItems": true
+            },
+            "default": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "host": {
+              "type": "string"
+            },
+            "merge": {
+              "$ref": "#/$defs/merge",
+              "default": {
+                "behavior": "merge",
+                "only-if": ""
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "host"
+          ]
+        }
+      ]
+    },
+    "merge": {
+      "type": "object",
+      "properties": {
+        "behavior": {
+          "$ref": "#/$defs/merge-behavior",
+          "default": "merge"
+        },
+        "only-if": {
+          "$ref": "#/$defs/merge-only-if",
+          "default": ""
+        }
+      },
+      "additionalProperties": false
+    },
+    "merge-behavior": {
+      "type": "string",
+      "enum": [
+        "merge",
+        "replace"
+      ]
+    },
+    "merge-only-if": {
+      "type": "string",
+      "enum": [
+        "",
+        "present",
+        "not-present"
+      ]
+    },
+    "open": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "default": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "merge": {
+              "$ref": "#/$defs/merge",
+              "default": {
+                "behavior": "merge",
+                "only-if": ""
+              }
+            },
+            "working-directory": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "command"
+          ]
+        }
+      ]
+    },
+    "storage": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "default": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "merge": {
+              "$ref": "#/$defs/merge",
+              "default": {
+                "behavior": "merge",
+                "only-if": ""
+              }
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "path"
+          ]
+        }
+      ]
+    }
+  }
+}

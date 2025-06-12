@@ -1,9 +1,9 @@
-use crate::schemas::utils::entry_map::VerboseEntry;
+use crate::schemas::{config::Merge, utils::entry_map::VerboseEntry};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "open")]
@@ -12,6 +12,8 @@ pub struct Open {
     pub command: Vec<String>,
     pub working_directory: Option<PathBuf>,
     pub default: Option<bool>,
+    #[serde(default)]
+    pub merge: Merge,
 }
 
 impl VerboseEntry<'_> for Open {
@@ -20,8 +22,7 @@ impl VerboseEntry<'_> for Open {
     fn from_short(command: Self::Short) -> Self {
         Self {
             command,
-            working_directory: None,
-            default: None,
+            ..Default::default()
         }
     }
 }
