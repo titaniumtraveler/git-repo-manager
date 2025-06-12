@@ -19,10 +19,7 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     Clone(CloneCommand),
-    Info {
-        #[clap(subcommand)]
-        info: Info,
-    },
+    Info (Info),
     Completions {
         shell: Shell,
     },
@@ -32,7 +29,7 @@ impl Cli {
     pub fn run(self) -> anyhow::Result<()> {
         match self.subcommands {
             Commands::Clone(clone) => clone.run(self.global_args),
-            Commands::Info { info } => info.run(self.global_args),
+            Commands::Info(info) => info.run(self.global_args),
             Commands::Completions { shell } => {
                 clap_complete::generate(
                     shell,

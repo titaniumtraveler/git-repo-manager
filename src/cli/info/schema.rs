@@ -11,10 +11,10 @@ pub enum Schema {
 }
 
 impl Schema {
-    pub fn run(self) -> anyhow::Result<()> {
+    pub fn run(self, pretty: bool) -> anyhow::Result<()> {
         match self {
-            Schema::Config => utils::write_schema_to_stdout::<Config>(),
-            Schema::RepoManifest => utils::write_schema_to_stdout::<RepoManifest>(),
+            Schema::Config => utils::write_schema_to_stdout::<Config>(pretty),
+            Schema::RepoManifest => utils::write_schema_to_stdout::<RepoManifest>(pretty),
         }
     }
 }

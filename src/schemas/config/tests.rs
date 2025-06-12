@@ -1,6 +1,6 @@
 use super::*;
 use crate::utils::read_json_from_path;
-use anyhow::{Context, anyhow, ensure};
+use anyhow::{Context, anyhow};
 use schemars::SchemaGenerator;
 
 fn default_config() -> PathBuf {
@@ -44,7 +44,7 @@ assertion `left == right` failed
     })()
     .with_context(|| {
         format!(
-            "run `cargo run -- info schema config > '{path}'`",
+            "run `cargo run -- info --pretty schema config > '{path}'`",
             path = path.display()
         )
     })
