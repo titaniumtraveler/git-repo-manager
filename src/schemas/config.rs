@@ -25,13 +25,13 @@ pub struct Config {
     #[schemars(with = "String", default)]
     schema: IgnoredAny,
     #[serde(deserialize_with = "entry_map::deserialize", default)]
-    pub hosts: BTreeMap<String, Host>,
+    pub host: BTreeMap<String, Host>,
     #[serde(deserialize_with = "entry_map::deserialize", default)]
-    pub repo_storages: BTreeMap<String, RepoStorage>,
+    pub storage: BTreeMap<String, Storage>,
     #[serde(deserialize_with = "entry_map::deserialize", default)]
-    pub checkout_dirs: BTreeMap<String, CheckoutDir>,
+    pub checkout: BTreeMap<String, Checkout>,
     #[serde(deserialize_with = "entry_map::deserialize", default)]
-    pub openers: BTreeMap<String, Opener>,
+    pub open: BTreeMap<String, Open>,
 }
 
 impl Config {
@@ -40,7 +40,7 @@ impl Config {
     }
 
     pub fn resolve_defaults(&mut self) {
-        for (k, v) in &mut self.hosts {
+        for (k, v) in &mut self.host {
             if k == "default" {
                 v.default = Some(true);
             } else {
@@ -48,7 +48,7 @@ impl Config {
             }
         }
 
-        for (k, v) in &mut self.repo_storages {
+        for (k, v) in &mut self.storage {
             if k == "default" {
                 v.default = Some(true);
             } else {
@@ -56,17 +56,17 @@ impl Config {
             }
         }
 
-        if self.repo_storages.is_empty() {
-            self.repo_storages.insert(
+        if self.storage.is_empty() {
+            self.storage.insert(
                 "DEFAULT".to_owned(),
-                RepoStorage {
+                Storage {
                     path: PROJECT_PATHS.default_storage_dir().to_owned(),
                     default: Some(true),
                 },
             );
         }
 
-        for (k, v) in &mut self.checkout_dirs {
+        for (k, v) in &mut self.checkout {
             if k == "default" {
                 v.default = Some(true);
             } else {
@@ -74,7 +74,7 @@ impl Config {
             }
         }
 
-        for (k, v) in &mut self.openers {
+        for (k, v) in &mut self.open {
             if k == "default" {
                 v.default = Some(true);
             } else {
@@ -113,12 +113,12 @@ impl VerboseEntry<'_> for Host {
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "checkout-dir")]
 #[schemars(transform = Self::transform_schema)]
-pub struct CheckoutDir {
+pub struct Checkout {
     pub path: PathBuf,
     pub default: Option<bool>,
 }
 
-impl VerboseEntry<'_> for CheckoutDir {
+impl VerboseEntry<'_> for Checkout {
     type Short = PathBuf;
 
     fn from_short(path: Self::Short) -> Self {
@@ -132,14 +132,14 @@ impl VerboseEntry<'_> for CheckoutDir {
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
-#[schemars(rename = "repo-storage")]
+#[schemars(rename = "storage")]
 #[schemars(transform = Self::transform_schema)]
-pub struct RepoStorage {
+pub struct Storage {
     pub path: PathBuf,
     pub default: Option<bool>,
 }
 
-impl VerboseEntry<'_> for RepoStorage {
+impl VerboseEntry<'_> for Storage {
     type Short = PathBuf;
 
     fn from_short(path: Self::Short) -> Self {
@@ -153,15 +153,15 @@ impl VerboseEntry<'_> for RepoStorage {
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
-#[schemars(rename = "opener")]
+#[schemars(rename = "open")]
 #[schemars(transform = Self::transform_schema)]
-pub struct Opener {
+pub struct Open {
     pub command: Vec<String>,
     pub working_directory: Option<PathBuf>,
     pub default: Option<bool>,
 }
 
-impl VerboseEntry<'_> for Opener {
+impl VerboseEntry<'_> for Open {
     type Short = Vec<String>;
 
     fn from_short(command: Self::Short) -> Self {

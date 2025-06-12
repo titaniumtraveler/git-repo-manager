@@ -1,26 +1,26 @@
 "$schema" = "./config_schema.json"
 
-[hosts]
+[host]
 gitlab = "git@gitlab.com:${repo/name}.git"
 
-[hosts.github]
+[host.github]
 host = "ssh://gh/${repo/name}.git"
 alias = ["gh"]
 default = true
 
 # Default if no storages are configured:
-[repo-storages]
+[storage]
 default = "$XDG_DATA_HOME/git-repo-manager/${host/name}/${repo/url/hash}.git"
 
-[checkout-dirs]
+[checkout]
 default = "~/projects/${host/name}/{$repo/name}"
 # other = { path = "~/other-projects/", default = false }
 
-[openers]
+[open]
 # Open bash
 # The current working directory is automatically set to ${repo-checkout}
 default = ["bash"]
 
-[openers.notes]
+[open.notes]
 command = ["bash"]
 working-directory = "${repo/file-path}/notes"
