@@ -2,8 +2,9 @@ use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
 use std::io;
 
-pub use self::{global_args::GlobalArgs, info::Info};
+pub use self::{clone::CloneCommand, global_args::GlobalArgs, info::Info};
 
+mod clone;
 mod global_args;
 mod info;
 
@@ -17,6 +18,7 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
+    Clone(CloneCommand),
     Info {
         #[clap(subcommand)]
         info: Info,
@@ -29,6 +31,7 @@ pub enum Commands {
 impl Cli {
     pub fn run(self) -> anyhow::Result<()> {
         match self.subcommands {
+            Commands::Clone(clone) => clone.run(self.global_args),
             Commands::Info { info } => info.run(self.global_args),
             Commands::Completions { shell } => {
                 clap_complete::generate(

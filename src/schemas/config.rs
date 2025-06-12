@@ -1,5 +1,8 @@
 use crate::{
-    schemas::utils::entry_map::{self, VerboseEntry},
+    schemas::{
+        directories::PROJECT_PATHS,
+        utils::entry_map::{self, VerboseEntry},
+    },
     utils,
 };
 use schemars::JsonSchema;
@@ -19,13 +22,13 @@ pub struct Config {
     #[schemars(with = "String", default)]
     schema: IgnoredAny,
     #[serde(deserialize_with = "entry_map::deserialize", default)]
-    hosts: BTreeMap<String, Host>,
+    pub hosts: BTreeMap<String, Host>,
     #[serde(deserialize_with = "entry_map::deserialize", default)]
-    repo_storages: BTreeMap<String, RepoStorage>,
+    pub repo_storages: BTreeMap<String, RepoStorage>,
     #[serde(deserialize_with = "entry_map::deserialize", default)]
-    checkout_dirs: BTreeMap<String, CheckoutDir>,
+    pub checkout_dirs: BTreeMap<String, CheckoutDir>,
     #[serde(deserialize_with = "entry_map::deserialize", default)]
-    openers: BTreeMap<String, Opener>,
+    pub openers: BTreeMap<String, Opener>,
 }
 
 impl Config {
@@ -42,7 +45,7 @@ impl Config {
             }
         }
 
-        for (k, v) in &mut self.checkout_dirs {
+        for (k, v) in &mut self.repo_storages {
             if k == "default" {
                 v.default = Some(true);
             } else {
@@ -50,7 +53,17 @@ impl Config {
             }
         }
 
-        for (k, v) in &mut self.repo_storages {
+        if self.repo_storages.is_empty() {
+            self.repo_storages.insert(
+                "DEFAULT".to_owned(),
+                RepoStorage {
+                    path: PROJECT_PATHS.default_storage_dir().to_owned(),
+                    default: Some(true),
+                },
+            );
+        }
+
+        for (k, v) in &mut self.checkout_dirs {
             if k == "default" {
                 v.default = Some(true);
             } else {
@@ -140,9 +153,9 @@ impl VerboseEntry<'_> for RepoStorage {
 #[schemars(rename = "opener")]
 #[schemars(transform = Self::transform_schema)]
 pub struct Opener {
-    command: Vec<String>,
-    working_directory: Option<PathBuf>,
-    default: Option<bool>,
+    pub command: Vec<String>,
+    pub working_directory: Option<PathBuf>,
+    pub default: Option<bool>,
 }
 
 impl VerboseEntry<'_> for Opener {

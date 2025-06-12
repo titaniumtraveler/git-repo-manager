@@ -7,7 +7,7 @@ use std::path::PathBuf;
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "repo-manifest.json")]
 pub struct RepoManifest {
-    repos: Vec<Repo>,
+    pub repos: Vec<Repo>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -15,13 +15,13 @@ pub struct RepoManifest {
 #[schemars(rename = "repo")]
 pub struct Repo {
     #[serde(rename = "repo/name")]
-    repo_name: PathBuf,
+    pub repo_name: PathBuf,
     #[serde(rename = "repo/url")]
-    repo_url: String,
+    pub repo_url: String,
     #[serde(rename = "repo/url/hash")]
-    repo_url_hash: HexStrHash,
+    pub repo_url_hash: HexStrHash,
     #[serde(rename = "repo/file-path")]
-    repo_file_path: PathBuf,
+    pub repo_file_path: PathBuf,
 }
 
 /// u64 Hash of the repo URL as little endian hexadecimal string

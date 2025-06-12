@@ -4,16 +4,16 @@
 gitlab = "git@gitlab.com:${repo/name}.git"
 
 [hosts.github]
-host = "ssh://git@github.com/${repo/name}.git"
+host = "ssh://gh/${repo/name}.git"
 alias = ["gh"]
 default = true
 
 # Default if no storages are configured:
 [repo-storages]
-default = "$XDG_DATA_HOME/git-repo-manager/"
+default = "$XDG_DATA_HOME/git-repo-manager/${host/name}/${repo/url/hash}.git"
 
 [checkout-dirs]
-default = "~/projects/"
+default = "~/projects/${host/name}/{$repo/name}"
 # other = { path = "~/other-projects/", default = false }
 
 [openers]
