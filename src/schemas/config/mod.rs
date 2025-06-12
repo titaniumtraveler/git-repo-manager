@@ -1,17 +1,21 @@
 use crate::{
-    schemas::{
-        directories::PROJECT_PATHS,
-        utils::entry_map::{self, VerboseEntry},
-    },
+    schemas::{directories::PROJECT_PATHS, utils::entry_map},
     utils,
 };
 use directories_next::ProjectDirs;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize, de::IgnoredAny};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     path::{Path, PathBuf},
 };
+
+pub use self::{checkout::Checkout, host::Host, open::Open, storage::Storage};
+
+pub mod checkout;
+pub mod host;
+pub mod open;
+pub mod storage;
 
 #[cfg(test)]
 mod tests;
@@ -21,6 +25,7 @@ mod tests;
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "config.toml")]
 pub struct Config {
+    // TODO: serialize schema-url as soon as there is a standard way to compute that
     #[allow(dead_code)]
     #[serde(rename = "$schema", skip_serializing, default)]
     #[schemars(with = "String", default)]
@@ -118,95 +123,6 @@ impl Config {
             } else {
                 v.default = Some(v.default.unwrap_or(false));
             }
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-#[serde(deny_unknown_fields)]
-#[schemars(rename = "host")]
-#[schemars(transform = Self::transform_schema)]
-pub struct Host {
-    pub host: String,
-    #[serde(default)]
-    pub alias: BTreeSet<String>,
-    pub default: Option<bool>,
-}
-
-impl VerboseEntry<'_> for Host {
-    type Short = String;
-
-    fn from_short(host: Self::Short) -> Self {
-        Self {
-            host,
-            alias: BTreeSet::new(),
-            default: None,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-#[serde(deny_unknown_fields)]
-#[schemars(rename = "checkout-dir")]
-#[schemars(transform = Self::transform_schema)]
-pub struct Checkout {
-    pub path: PathBuf,
-    pub default: Option<bool>,
-}
-
-impl VerboseEntry<'_> for Checkout {
-    type Short = PathBuf;
-
-    fn from_short(path: Self::Short) -> Self {
-        Self {
-            path,
-            default: None,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-#[serde(deny_unknown_fields)]
-#[schemars(rename = "storage")]
-#[schemars(transform = Self::transform_schema)]
-pub struct Storage {
-    pub path: PathBuf,
-    pub default: Option<bool>,
-}
-
-impl VerboseEntry<'_> for Storage {
-    type Short = PathBuf;
-
-    fn from_short(path: Self::Short) -> Self {
-        Self {
-            path,
-            default: None,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-#[serde(deny_unknown_fields)]
-#[schemars(rename = "open")]
-#[schemars(transform = Self::transform_schema)]
-pub struct Open {
-    pub command: Vec<String>,
-    pub working_directory: Option<PathBuf>,
-    pub default: Option<bool>,
-}
-
-impl VerboseEntry<'_> for Open {
-    type Short = Vec<String>;
-
-    fn from_short(command: Self::Short) -> Self {
-        Self {
-            command,
-            working_directory: None,
-            default: None,
         }
     }
 }
