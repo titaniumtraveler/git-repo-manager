@@ -1,8 +1,4 @@
-use crate::{
-    cli::GlobalArgs,
-    schemas::{config::Config, repo_manifest::RepoManifest},
-    utils::read_json_from_path,
-};
+use crate::{cli::GlobalArgs, schemas::config::Config};
 use anyhow::Context;
 use clap::Args;
 use std::path::PathBuf;
@@ -23,15 +19,15 @@ impl CloneCommand {
             .find(|(_, storage)| storage.default && storage.path.is_some())
             .context("failed to retrieve repo storage")?;
 
-        let mut storage_path = storage
+        let mut _storage_path = storage
             .path
             .as_deref()
             .expect("a storage path that is `Some(_)`")
             .to_path_buf();
 
-        storage_path.push("manifest.json");
-        let _manifest: Option<RepoManifest> = read_json_from_path(&storage_path)?;
-        storage_path.pop();
+        // storage_path.push("manifest.json");
+        // let _manifest: Option<RepoManifest> = read_json_from_path(&storage_path)?;
+        // storage_path.pop();
 
         todo!()
     }

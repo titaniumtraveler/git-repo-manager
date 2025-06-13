@@ -1,7 +1,19 @@
 use super::*;
-use crate::utils::read_json_from_path;
 use anyhow::{Context, anyhow};
 use schemars::SchemaGenerator;
+use serde::de::DeserializeOwned;
+use std::io;
+
+pub(crate) fn read_json_from_path<T: DeserializeOwned>(path: &Path) -> anyhow::Result<Option<T>> {
+    let str = match std::fs::read_to_string(path) {
+        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
+        o => o,
+    }
+    .with_context(|| format!("{}", path.display()))?;
+
+    let config: T = serde_json::from_str(&str)?;
+    Ok(Some(config))
+}
 
 fn default_config() -> PathBuf {
     PathBuf::from(format!(
