@@ -1,4 +1,4 @@
-use crate::{cli::GlobalArgs, schemas::config::Config, utils::write_json_to_stdout};
+use crate::{cli::GlobalArgs, state::State, utils::write_json_to_stdout};
 use clap::{Args, Subcommand};
 
 pub use self::schema::Schema;
@@ -26,19 +26,19 @@ pub enum InfoKind {
 }
 
 impl Info {
-    pub fn run(self, global_args: GlobalArgs) -> anyhow::Result<()> {
+    pub fn run(self, args: GlobalArgs) -> anyhow::Result<()> {
         let Self { pretty, info } = self;
         match info {
             InfoKind::Config => {
-                let mut config = Config::from_file(global_args.config_file())?;
-                config.resolve_defaults();
-                write_json_to_stdout(&config, pretty)?;
+                let mut state = State::new();
+                state.init_defaults(&args)?;
+                write_json_to_stdout(&state.config, pretty)?;
                 Ok(())
             }
 
             InfoKind::Schema { schema } => schema.run(pretty),
             InfoKind::Paths => {
-                let paths = global_args.paths();
+                let paths = args.paths();
                 write_json_to_stdout(&paths, pretty)?;
                 Ok(())
             }

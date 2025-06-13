@@ -19,10 +19,8 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     Clone(CloneCommand),
-    Info (Info),
-    Completions {
-        shell: Shell,
-    },
+    Info(Info),
+    Completions { shell: Shell },
 }
 
 impl Cli {

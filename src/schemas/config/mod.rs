@@ -5,6 +5,7 @@ use crate::{
     },
     utils,
 };
+use anyhow::{Context, anyhow};
 use directories_next::ProjectDirs;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize, de::IgnoredAny};
@@ -93,7 +94,12 @@ impl Config {
     }
 
     pub fn from_file(path: &Path) -> anyhow::Result<Self> {
-        utils::read_toml_from_path(path)
+        utils::read_toml_from_path(path).with_context(|| {
+            anyhow!(
+                "failed to read config file from `{path}`",
+                path = path.display()
+            )
+        })
     }
 
     pub fn resolve_defaults(&mut self) {
