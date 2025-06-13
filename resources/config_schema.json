@@ -37,10 +37,10 @@
       },
       "default": {}
     },
-    "storage": {
+    "repo": {
       "type": "object",
       "additionalProperties": {
-        "$ref": "#/$defs/storage"
+        "$ref": "#/$defs/repo"
       },
       "default": {}
     }
@@ -216,7 +216,7 @@
         }
       ]
     },
-    "storage": {
+    "repo": {
       "oneOf": [
         {
           "type": "string"

@@ -14,13 +14,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub use self::{checkout::Checkout, host::Host, merge::Merge, open::Open, storage::Storage};
+pub use self::{checkout::Checkout, host::Host, merge::Merge, open::Open, repo::Repo};
 
 pub mod checkout;
 pub mod host;
 pub mod merge;
 pub mod open;
-pub mod storage;
+pub mod repo;
 
 #[cfg(test)]
 mod tests;
@@ -38,7 +38,7 @@ pub struct Config {
     #[serde(deserialize_with = "entry_map::deserialize", default)]
     pub host: BTreeMap<String, Host>,
     #[serde(deserialize_with = "entry_map::deserialize", default)]
-    pub storage: BTreeMap<String, Storage>,
+    pub repo: BTreeMap<String, Repo>,
     #[serde(deserialize_with = "entry_map::deserialize", default)]
     pub checkout: BTreeMap<String, Checkout>,
     #[serde(deserialize_with = "entry_map::deserialize", default)]
@@ -56,14 +56,14 @@ impl Config {
 
         let default = Self::default();
         Self {
-            storage: {
-                let mut storage = default.storage;
+            repo: {
+                let mut storage = default.repo;
                 storage.insert(
                     "default".to_owned(),
-                    Storage {
+                    Repo {
                         path: Some(PathBuf::from_iter([
                             env.data_dir(),
-                            "storage/${host/name}/${repo/url/hash}.git".as_ref(),
+                            "repo/${host/name}/${repo/url/hash}.git".as_ref(),
                         ])),
                         default: true,
                         merge: MERGE_DEFAULT,
@@ -117,7 +117,7 @@ impl Config {
 
         self.default = ConfigDefault {
             host: host.or_else(|| find_default(&self.host, |e| e.default)),
-            storage: storage.or_else(|| find_default(&self.storage, |e| e.default)),
+            storage: storage.or_else(|| find_default(&self.repo, |e| e.default)),
             checkout: checkout.or_else(|| find_default(&self.checkout, |e| e.default)),
             open: open.or_else(|| find_default(&self.open, |e| e.default)),
         };
@@ -127,18 +127,18 @@ impl Config {
         let Self {
             schema: _,
             host,
-            storage,
+            repo: storage,
             checkout,
             open,
             default,
         } = other;
         merge_entries(&mut self.host, host);
-        merge_entries(&mut self.storage, storage);
+        merge_entries(&mut self.repo, storage);
         merge_entries(&mut self.checkout, checkout);
         merge_entries(&mut self.open, open);
 
         pick_default(&mut self.default.host, default.host, &self.host);
-        pick_default(&mut self.default.storage, default.storage, &self.storage);
+        pick_default(&mut self.default.storage, default.storage, &self.repo);
         pick_default(&mut self.default.checkout, default.checkout, &self.checkout);
         pick_default(&mut self.default.open, default.open, &self.open);
     }

@@ -9,9 +9,9 @@ use std::{mem, path::PathBuf};
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
-#[schemars(rename = "storage")]
+#[schemars(rename = "repo")]
 #[schemars(transform = Self::transform_schema)]
-pub struct Storage {
+pub struct Repo {
     pub path: Option<PathBuf>,
     #[serde(default)]
     pub default: bool,
@@ -19,7 +19,7 @@ pub struct Storage {
     pub merge: Merge,
 }
 
-impl VerboseEntry<'_> for Storage {
+impl VerboseEntry<'_> for Repo {
     type Short = PathBuf;
 
     fn from_short(path: Self::Short) -> Self {
@@ -30,7 +30,7 @@ impl VerboseEntry<'_> for Storage {
     }
 }
 
-impl MergeEntry for Storage {
+impl MergeEntry for Repo {
     fn merge_config(&self) -> &Merge {
         &self.merge
     }
@@ -41,7 +41,7 @@ impl MergeEntry for Storage {
 
     fn merge_entries(
         &mut self,
-        Storage {
+        Repo {
             path,
             default,
             merge: _,

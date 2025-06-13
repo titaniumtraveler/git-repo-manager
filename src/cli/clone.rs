@@ -18,7 +18,7 @@ impl CloneCommand {
         config.resolve_defaults();
 
         let (_, storage) = config
-            .storage
+            .repo
             .iter()
             .find(|(_, storage)| storage.default && storage.path.is_some())
             .context("failed to retrieve repo storage")?;
