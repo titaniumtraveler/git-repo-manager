@@ -10,7 +10,7 @@
     "checkout": {
       "type": "object",
       "additionalProperties": {
-        "$ref": "#/$defs/checkout-dir"
+        "$ref": "#/$defs/checkout"
       },
       "default": {}
     },
@@ -47,7 +47,7 @@
   },
   "additionalProperties": false,
   "$defs": {
-    "checkout-dir": {
+    "checkout": {
       "oneOf": [
         {
           "type": "string"

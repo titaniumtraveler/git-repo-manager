@@ -9,7 +9,7 @@ use std::{mem, path::PathBuf};
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
-#[schemars(rename = "checkout-dir")]
+#[schemars(rename = "checkout")]
 #[schemars(transform = Self::transform_schema)]
 pub struct Checkout {
     pub path: Option<PathBuf>,
