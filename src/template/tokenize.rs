@@ -80,11 +80,7 @@ impl<'a> Iterator for Tokenize<'a> {
                     }
                     Some(_) => {
                         const SPECIAL: &[u8] = b" \t\n()<>[]|&;/";
-
-                        let mut idx = 0;
-                        while idx < str.len() && !SPECIAL.contains(&str[idx]) {
-                            idx += 1;
-                        }
+                        let idx = str.find_byteset(SPECIAL).unwrap_or(str.len());
 
                         self.0 = &str[idx..];
                         Some(Var(&str[..idx]))
