@@ -10,6 +10,7 @@ use directories_next::ProjectDirs;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize, de::IgnoredAny};
 use std::{
+    borrow::Borrow,
     collections::{BTreeMap, btree_map::Entry},
     mem,
     path::{Path, PathBuf},
@@ -26,7 +27,7 @@ pub mod repo;
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema, Default)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Default, Clone)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "config.toml")]
@@ -172,7 +173,7 @@ fn pick_default<T>(default: &mut Option<String>, other: Option<String>, map: &BT
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema, Default)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Default, Clone)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "default")]
@@ -181,4 +182,36 @@ pub struct ConfigDefault {
     pub storage: Option<String>,
     pub checkout: Option<String>,
     pub open: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "kebab-case")]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "source")]
+pub enum ConfigSource {
+    #[default]
+    None,
+    Builtin,
+    File(PathBuf),
+    Resolved,
+}
+
+impl Borrow<Path> for ConfigSource {
+    fn borrow(&self) -> &Path {
+        match self {
+            ConfigSource::File(path) => path,
+            _ => Path::new("<invalid>"),
+        }
+    }
+}
+
+impl PartialEq<Path> for ConfigSource {
+    fn eq(&self, other: &Path) -> bool {
+        match self {
+            ConfigSource::None => false,
+            ConfigSource::Builtin => false,
+            ConfigSource::File(path) => path.eq(other),
+            ConfigSource::Resolved => false,
+        }
+    }
 }

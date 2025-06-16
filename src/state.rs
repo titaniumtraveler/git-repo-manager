@@ -1,17 +1,32 @@
-use crate::{cli::GlobalArgs, schemas::config::Config};
+use crate::{
+    cli::GlobalArgs,
+    schemas::config::{Config, ConfigSource},
+};
 use anyhow::anyhow;
 use directories_next::ProjectDirs;
-use std::path::PathBuf;
+use std::{
+    collections::{BTreeMap, btree_map::Entry},
+    path::PathBuf,
+};
 
 #[derive(Debug, Default)]
 pub struct State {
-    pub config: Config,
+    pub config: Configs,
+}
+
+#[derive(Debug, Default)]
+pub struct Configs {
+    pub resolved_config: Config,
+    pub sources: BTreeMap<ConfigSource, Config>,
 }
 
 impl State {
     pub fn new() -> Self {
         Self {
-            config: Config::default(),
+            config: Configs {
+                resolved_config: Config::default(),
+                sources: BTreeMap::new(),
+            },
         }
     }
 
@@ -19,21 +34,66 @@ impl State {
         let dirs = ProjectDirs::from_path(PathBuf::from("git-repo-manager"))
             .ok_or_else(|| anyhow!("failed to create project dirs"))?;
 
-        self.load_config(Config::default_config(&dirs));
+        self.config.load_default(&dirs);
 
-        if let Some(config) = &args.config {
-            self.load_config(Config::from_file(config)?);
-        } else {
-            let path = PathBuf::from_iter(&[dirs.config_dir(), "config.toml".as_ref()]);
-
-            self.load_config(Config::from_file(&path)?);
-        }
+        self.config.load_from_file(
+            args.config
+                .as_ref()
+                .cloned()
+                .unwrap_or_else(|| [dirs.config_dir(), "config.toml".as_ref()].iter().collect()),
+        )?;
 
         Ok(())
     }
+}
 
-    pub fn load_config(&mut self, mut config: Config) {
-        config.resolve_defaults();
-        self.config.merge(config);
+impl Configs {
+    fn insert(&mut self, source: ConfigSource, config: Config) -> bool {
+        match self.sources.entry(source) {
+            Entry::Vacant(vacant) => {
+                vacant.insert(config.clone());
+                true
+            }
+            // Already loaded
+            Entry::Occupied(_) => false,
+        }
+    }
+
+    pub fn load(&mut self, source: ConfigSource, mut config: Config) -> bool {
+        if self.insert(source, config.clone()) {
+            config.resolve_defaults();
+            self.resolved_config.merge(config);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn load_raw(&mut self, source: ConfigSource, config: Config) -> bool {
+        if self.insert(source, config.clone()) {
+            self.resolved_config.merge(config);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn load_default(&mut self, dirs: &ProjectDirs) {
+        self.load(ConfigSource::Builtin, Config::default_config(dirs));
+    }
+
+    pub fn load_from_file(&mut self, path: impl Into<PathBuf>) -> anyhow::Result<bool> {
+        let path = path.into();
+        if !self.sources.contains_key(&*path) {
+            let config = Config::from_file(&path)?;
+            let was_loaded = self.load_raw(ConfigSource::File(path), config);
+            debug_assert!(
+                was_loaded,
+                "config was not in `configs.sources`, but wasn't loaded"
+            );
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }

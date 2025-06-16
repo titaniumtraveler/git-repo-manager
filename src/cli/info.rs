@@ -32,7 +32,7 @@ impl Info {
             InfoKind::Config => {
                 let mut state = State::new();
                 state.init_defaults(&args)?;
-                write_json_to_stdout(&state.config, pretty)?;
+                write_json_to_stdout(&state.config.resolved_config, pretty)?;
                 Ok(())
             }
 
