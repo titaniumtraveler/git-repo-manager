@@ -1,5 +1,5 @@
 use bstr::{BStr, ByteSlice};
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Display, Write};
 
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Task<'a> {
@@ -28,6 +28,25 @@ impl Debug for Task<'_> {
         field("open", self.open);
 
         s.finish()
+    }
+}
+
+impl Display for Task<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut f = |sep, field| {
+            if let Some(field) = field {
+                f.write_char(sep)?;
+                Display::fmt(BStr::new(field), f)?;
+            }
+            Ok(())
+        };
+
+        f('+', self.host)?;
+        f(':', self.repo)?;
+        f('@', self.tree)?;
+        f('!', self.open)?;
+
+        Ok(())
     }
 }
 
@@ -139,13 +158,30 @@ expected: {expected:?}
         }};
     }
 
+    const CHARS: &str = {
+        match str::from_utf8(TokenKind::None.byteset()) {
+            Ok(str) => str,
+            Err(_) => panic!(),
+        }
+    };
+
     macro_rules! assert_task {
         ($name:ident,$str:expr,$task:expr) => {
             #[test]
             fn $name() {
+                let task = $task;
+                let string = $str;
+
+                let display = $str;
+
                 assert_expected! {
-                    $task,
-                    Task::from($str.as_bytes())
+                    &task,
+                    &Task::from(string.as_bytes())
+                }
+
+                assert_expected! {
+                    string.trim_start_matches(CHARS),
+                    display.trim_start_matches(CHARS)
                 }
             }
         };
