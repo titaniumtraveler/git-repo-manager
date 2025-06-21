@@ -1,6 +1,6 @@
 use super::*;
 use anyhow::{Context, anyhow};
-use schemars::SchemaGenerator;
+use schemars::{Schema, SchemaGenerator};
 use serde::de::DeserializeOwned;
 use std::io;
 
@@ -39,7 +39,7 @@ fn schema_present_and_correct() -> anyhow::Result<()> {
 
     (|| {
         let expected = SchemaGenerator::default().into_root_schema_for::<Config>();
-        let actual = read_json_from_path(&path)
+        let actual: Schema = read_json_from_path(&path)
             .with_context(|| path.to_string_lossy().into_owned())?
             .ok_or_else(|| anyhow!("missing schema at {path}", path = path.display()))?;
 

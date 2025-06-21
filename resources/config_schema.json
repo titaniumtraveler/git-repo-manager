@@ -7,85 +7,9 @@
       "type": "string",
       "writeOnly": true
     },
-    "checkout": {
-      "type": "object",
-      "additionalProperties": {
-        "$ref": "#/$defs/checkout"
-      },
-      "default": {}
-    },
-    "default": {
-      "$ref": "#/$defs/default",
-      "default": {
-        "checkout": null,
-        "host": null,
-        "open": null,
-        "storage": null
-      }
-    },
-    "host": {
-      "type": "object",
-      "additionalProperties": {
-        "$ref": "#/$defs/host"
-      },
-      "default": {}
-    },
-    "open": {
-      "type": "object",
-      "additionalProperties": {
-        "$ref": "#/$defs/open"
-      },
-      "default": {}
-    },
-    "repo": {
-      "type": "object",
-      "additionalProperties": {
-        "$ref": "#/$defs/repo"
-      },
-      "default": {}
-    }
-  },
-  "additionalProperties": false,
-  "$defs": {
-    "checkout": {
-      "oneOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "default": {
-              "type": "boolean",
-              "default": false
-            },
-            "merge": {
-              "$ref": "#/$defs/merge",
-              "default": {
-                "behavior": "merge",
-                "only-if": ""
-              }
-            },
-            "path": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          },
-          "additionalProperties": false
-        }
-      ]
-    },
     "default": {
       "type": "object",
       "properties": {
-        "checkout": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
         "host": {
           "type": [
             "string",
@@ -98,53 +22,327 @@
             "null"
           ]
         },
-        "storage": {
+        "repo": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tree": {
           "type": [
             "string",
             "null"
           ]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "default": {
+        "host": null,
+        "open": null,
+        "repo": null,
+        "tree": null
+      }
     },
     "host": {
-      "oneOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "alias": {
-              "type": "array",
-              "default": [],
-              "items": {
-                "type": "string"
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "alias": {
+                "type": "array",
+                "default": [],
+                "items": {
+                  "type": "string"
+                }
               },
-              "uniqueItems": true
-            },
-            "default": {
-              "type": "boolean",
-              "default": false
-            },
-            "host": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "merge": {
-              "$ref": "#/$defs/merge",
               "default": {
-                "behavior": "merge",
-                "only-if": ""
+                "type": "boolean",
+                "default": false
+              },
+              "host": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "merge": {
+                "$ref": "#/$defs/merge",
+                "default": {
+                  "behavior": "merge",
+                  "only-if": ""
+                }
               }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "default": {}
+    },
+    "open": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           },
-          "additionalProperties": false
-        }
-      ]
+          {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "default": {
+                "type": "boolean",
+                "default": false
+              },
+              "merge": {
+                "$ref": "#/$defs/merge",
+                "default": {
+                  "behavior": "merge",
+                  "only-if": ""
+                }
+              },
+              "working-directory": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "command"
+            ]
+          }
+        ]
+      },
+      "default": {}
     },
+    "repo": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "alias": {
+                "type": "array",
+                "default": [],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "default": {
+                "default": {
+                  "default": false,
+                  "host": null,
+                  "open": null,
+                  "tree": null
+                },
+                "oneOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "default": {
+                        "type": "boolean",
+                        "default": false
+                      },
+                      "host": {
+                        "description": "The default host of this repo",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "default": null
+                      },
+                      "open": {
+                        "description": "The default open of this repo",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "default": null
+                      },
+                      "tree": {
+                        "description": "The default tree of this repo",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "default": null
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "manifest": {
+                "description": "file describing the sub trees of the `tree` that contains multiple trees\n- defaults to true if `path` references `${repo/*}`\n- if true, derive from path\n  - would be `~/projects/config.toml`\n- if path template, that path template\n  - if not absolute, relative to",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "merge": {
+                "$ref": "#/$defs/merge",
+                "default": {
+                  "behavior": "merge",
+                  "only-if": ""
+                }
+              },
+              "name": {
+                "description": "unique identifier of the repo\n- if none, derive from path\n- if template, might point to multiple",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "path": {
+                "description": "path pointing to the repo\n- if template, potentially pointing to multiple\n- allows for `${entry/name}`\n  ```toml\n  [tree.default]\n  path = \"~/${entry.name}\"\n  name = \"projects/${host.name}/${repo.name}.git\"\n  manifest = true\n  ```",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "default": {}
+    },
+    "tree": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "alias": {
+                "type": "array",
+                "default": [],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "default": {
+                "default": {
+                  "default": false,
+                  "host": null,
+                  "open": null
+                },
+                "oneOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "default": {
+                        "type": "boolean",
+                        "default": false
+                      },
+                      "host": {
+                        "description": "The default host of this repo",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "default": null
+                      },
+                      "open": {
+                        "description": "The default open of this repo",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "default": null
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "manifest": {
+                "description": "file describing the sub repos of the `repo` that contains multiple repos\n- defaults to true if `path` references `${repo/*}`\n- if true, derive from path\n  - would be `~/projects/config.toml`\n- if path template, that path template\n  - if not absolute, relative to",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "merge": {
+                "$ref": "#/$defs/merge",
+                "default": {
+                  "behavior": "merge",
+                  "only-if": ""
+                }
+              },
+              "name": {
+                "description": "unique identifier of the tree\n- if none, derive from path\n- if template, might point to multiple",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "path": {
+                "description": "path pointing to the tree\n- if template, potentially pointing to multiple\n- allows for `${entry/name}`\n  ```toml\n  [tree.default]\n  path = \"~/${entry.name}\"\n  name = \"projects/${host.name}/${repo.name}/${tree.name}\"\n  manifest = true\n  ```",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "repo": {
+                "description": "Repo this tree is associated with",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "default": {}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
     "merge": {
       "type": "object",
       "properties": {
@@ -172,78 +370,6 @@
         "",
         "present",
         "not-present"
-      ]
-    },
-    "open": {
-      "oneOf": [
-        {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        {
-          "type": "object",
-          "properties": {
-            "command": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "default": {
-              "type": "boolean",
-              "default": false
-            },
-            "merge": {
-              "$ref": "#/$defs/merge",
-              "default": {
-                "behavior": "merge",
-                "only-if": ""
-              }
-            },
-            "working-directory": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "command"
-          ]
-        }
-      ]
-    },
-    "repo": {
-      "oneOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "default": {
-              "type": "boolean",
-              "default": false
-            },
-            "merge": {
-              "$ref": "#/$defs/merge",
-              "default": {
-                "behavior": "merge",
-                "only-if": ""
-              }
-            },
-            "path": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          },
-          "additionalProperties": false
-        }
       ]
     }
   }

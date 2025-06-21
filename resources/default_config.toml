@@ -12,7 +12,11 @@ default = true
 [repo]
 default = "$XDG_DATA_HOME/git-repo-manager/${host/name}/${repo/url/hash}.git"
 
-[checkout]
+[repo.name]
+name = "123"
+default = false
+
+[tree]
 default = "~/projects/${host/name}/{$repo/name}"
 # other = { path = "~/other-projects/", default = false }
 

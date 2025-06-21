@@ -9,32 +9,33 @@ use std::mem;
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Default, Clone)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
-#[schemars(rename = "repo")]
+#[schemars(rename = "tree")]
 #[schemars(inline)]
 #[schemars(transform = Self::transform_schema)]
-pub struct Repo {
-    /// unique identifier of the repo
+pub struct Tree {
+    /// unique identifier of the tree
     /// - if none, derive from path
     /// - if template, might point to multiple
     #[serde(default)]
     pub name: Option<BString>,
 
-    /// path pointing to the repo
+    /// path pointing to the tree
     /// - if template, potentially pointing to multiple
     /// - allows for `${entry/name}`
     ///   ```toml
     ///   [tree.default]
     ///   path = "~/${entry.name}"
-    ///   name = "projects/${host.name}/${repo.name}.git"
+    ///   name = "projects/${host.name}/${repo.name}/${tree.name}"
     ///   manifest = true
     ///   ```
     #[serde(default)]
     pub path: Option<BString>,
 
+    /// Repo this tree is associated with
     #[serde(default)]
-    pub url: Option<BString>,
+    pub repo: Option<BString>,
 
-    /// file describing the sub trees of the `tree` that contains multiple trees
+    /// file describing the sub repos of the `repo` that contains multiple repos
     /// - defaults to true if `path` references `${repo/*}`
     /// - if true, derive from path
     ///   - would be `~/projects/config.toml`
@@ -44,16 +45,16 @@ pub struct Repo {
     pub manifest: Option<BString>,
 
     #[serde(default)]
-    pub alias: Vec<String>,
+    pub alias: Vec<BString>,
 
     #[serde(deserialize_with = "verbose::bool::deserialize", default)]
-    pub default: RepoDefault,
+    pub default: TreeDefault,
 
     #[serde(default)]
     pub merge: Merge,
 }
 
-impl VerboseEntry<'_> for Repo {
+impl VerboseEntry<'_> for Tree {
     type Short = BString;
 
     fn from_short(name: Self::Short) -> Self {
@@ -64,78 +65,21 @@ impl VerboseEntry<'_> for Repo {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema, Default, Clone)]
-#[serde(rename_all = "kebab-case")]
-#[serde(deny_unknown_fields)]
-#[schemars(rename = "repo::default")]
-#[schemars(inline)]
-#[schemars(transform = Self::transform_schema)]
-pub struct RepoDefault {
-    #[serde(default)]
-    pub default: bool,
-
-    /// The default host of this repo
-    #[serde(default)]
-    pub host: Option<BString>,
-
-    /// The default tree of this repo
-    #[serde(default)]
-    pub tree: Option<BString>,
-
-    /// The default open of this repo
-    #[serde(default)]
-    pub open: Option<BString>,
-}
-
-impl VerboseEntry<'_> for RepoDefault {
-    type Short = bool;
-
-    fn from_short(default: Self::Short) -> Self {
-        Self {
-            default,
-            host: None,
-            tree: None,
-            open: None,
-        }
-    }
-}
-
-impl RepoDefault {
-    pub fn merge(
-        &mut self,
-        Self {
-            default,
-            host,
-            tree,
-            open,
-        }: Self,
-    ) {
-        let s = mem::take(self);
-        *self = Self {
-            default: default | s.default,
-            host: host.or(s.host),
-            tree: tree.or(s.tree),
-            open: open.or(s.open),
-        }
-    }
-}
-
-impl MergeEntry for Repo {
+impl MergeEntry for Tree {
     fn merge_config(&self) -> &Merge {
         &self.merge
     }
-
     fn merge_config_mut(&mut self) -> &mut Merge {
         &mut self.merge
     }
 
     fn merge_entries(
         &mut self,
-        Repo {
+        Self {
             merge: _,
             name,
             path,
-            url,
+            repo,
             manifest,
             mut alias,
             mut default,
@@ -145,7 +89,7 @@ impl MergeEntry for Repo {
         *self = Self {
             name: name.or(s.name),
             path: path.or(s.path),
-            url: url.or(s.url),
+            repo: repo.or(s.repo),
             manifest: manifest.or(s.manifest),
             alias: {
                 alias.extend(s.alias);
@@ -156,6 +100,55 @@ impl MergeEntry for Repo {
                 default
             },
             merge: s.merge,
+        };
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Default, Clone)]
+#[serde(rename_all = "kebab-case")]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "tree::default")]
+#[schemars(inline)]
+#[schemars(transform = Self::transform_schema)]
+pub struct TreeDefault {
+    #[serde(default)]
+    pub default: bool,
+
+    /// The default host of this repo
+    #[serde(default)]
+    pub host: Option<BString>,
+
+    /// The default open of this repo
+    #[serde(default)]
+    pub open: Option<BString>,
+}
+
+impl VerboseEntry<'_> for TreeDefault {
+    type Short = bool;
+
+    fn from_short(default: Self::Short) -> Self {
+        Self {
+            default,
+            host: None,
+            open: None,
+        }
+    }
+}
+
+impl TreeDefault {
+    pub fn merge(
+        &mut self,
+        Self {
+            default,
+            host,
+            open,
+        }: Self,
+    ) {
+        let s = mem::take(self);
+        *self = Self {
+            default: default | s.default,
+            host: host.or(s.host),
+            open: open.or(s.open),
         }
     }
 }
