@@ -9,6 +9,8 @@ use std::{
     path::PathBuf,
 };
 
+pub mod query;
+
 #[derive(Debug, Default)]
 pub struct State {
     pub config: Configs,

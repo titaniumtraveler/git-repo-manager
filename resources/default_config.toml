@@ -10,14 +10,14 @@ default = true
 
 # Default if no repos are configured:
 [repo]
-default = "$XDG_DATA_HOME/git-repo-manager/${host/name}/${repo/url/hash}.git"
+default = "$XDG_DATA_HOME/git-repo-manager/repo/${host/name}/${repo/url/hash}.git"
 
 [repo.name]
 name = "123"
 default = false
 
 [tree]
-default = "~/projects/${host/name}/{$repo/name}"
+default = "$XDG_DATA_HOME/git-repo-manager/tree/${host/name}/${repo/url}/${tree/name}"
 # other = { path = "~/other-projects/", default = false }
 
 [open]
