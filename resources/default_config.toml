@@ -1,7 +1,7 @@
 "$schema" = "./config_schema.json"
 
 [host]
-gitlab = "git@gitlab.com:${repo/name}.git"
+gitlab = "ssh://git@gitlab.com:${repo/name}.git"
 
 [host.github]
 host = "ssh://gh/${repo/name}.git"

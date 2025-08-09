@@ -3,11 +3,13 @@ use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
+    ffi::{OsStr, OsString},
     fmt::{Debug, Display},
     ops::{Deref, DerefMut},
+    os::unix::ffi::OsStringExt,
 };
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, PartialEq)]
 pub struct BString(pub Vec<u8>);
 
 impl Debug for BString {
@@ -63,5 +65,17 @@ impl Deref for BString {
 impl DerefMut for BString {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl From<OsString> for BString {
+    fn from(value: OsString) -> Self {
+        BString(OsString::into_vec(value))
+    }
+}
+
+impl From<&OsStr> for BString {
+    fn from(value: &OsStr) -> Self {
+        BString(OsString::into_vec(value.to_owned()))
     }
 }

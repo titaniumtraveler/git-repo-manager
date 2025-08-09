@@ -43,6 +43,7 @@ impl State {
                 .as_ref()
                 .cloned()
                 .unwrap_or_else(|| [dirs.config_dir(), "config.toml".as_ref()].iter().collect()),
+            true,
         )?;
 
         Ok(())
@@ -61,19 +62,23 @@ impl Configs {
         }
     }
 
-    pub fn load(&mut self, source: ConfigSource, mut config: Config) -> bool {
+    pub fn load(&mut self, source: ConfigSource, mut config: Config, merge: bool) -> bool {
         if self.insert(source, config.clone()) {
             config.resolve_defaults();
-            self.resolved_config.merge(config);
+            if merge {
+                self.resolved_config.merge(config);
+            }
             true
         } else {
             false
         }
     }
 
-    pub fn load_raw(&mut self, source: ConfigSource, config: Config) -> bool {
+    pub fn load_raw(&mut self, source: ConfigSource, config: Config, merge: bool) -> bool {
         if self.insert(source, config.clone()) {
-            self.resolved_config.merge(config);
+            if merge {
+                self.resolved_config.merge(config);
+            }
             true
         } else {
             false
@@ -81,14 +86,18 @@ impl Configs {
     }
 
     pub fn load_default(&mut self, dirs: &ProjectDirs) {
-        self.load(ConfigSource::Builtin, Config::default_config(dirs));
+        self.load(ConfigSource::Builtin, Config::default_config(dirs), true);
     }
 
-    pub fn load_from_file(&mut self, path: impl Into<PathBuf>) -> anyhow::Result<bool> {
+    pub fn load_from_file(
+        &mut self,
+        path: impl Into<PathBuf>,
+        merge: bool,
+    ) -> anyhow::Result<bool> {
         let path = path.into();
         if !self.sources.contains_key(&*path) {
             let config = Config::from_file(&path)?;
-            let was_loaded = self.load_raw(ConfigSource::File(path), config);
+            let was_loaded = self.load_raw(ConfigSource::File(path), config, merge);
             debug_assert!(
                 was_loaded,
                 "config was not in `configs.sources`, but wasn't loaded"

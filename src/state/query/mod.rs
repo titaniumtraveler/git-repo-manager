@@ -1,3 +1,4 @@
+#![allow(unused)]
 use crate::{state::query::tokens::QueryTokens, template::Template};
 use bstr::ByteSlice;
 use std::fmt::Debug;

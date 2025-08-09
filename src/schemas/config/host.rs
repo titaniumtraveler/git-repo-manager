@@ -17,6 +17,10 @@ pub struct Host {
     #[serde(default)]
     pub alias: Vec<BString>,
     #[serde(default)]
+    pub key: Option<BString>,
+    #[serde(default)]
+    pub pass_program: Vec<BString>,
+    #[serde(default)]
     pub default: bool,
     #[serde(default)]
     pub merge: Merge,
@@ -47,6 +51,8 @@ impl MergeEntry for Host {
         Self {
             host,
             mut alias,
+            key,
+            pass_program,
             default,
             merge: _,
         }: Self,
@@ -57,6 +63,12 @@ impl MergeEntry for Host {
             alias: {
                 alias.extend(s.alias);
                 alias
+            },
+            key: key.or(s.key),
+            pass_program: if !pass_program.is_empty() {
+                pass_program
+            } else {
+                s.pass_program
             },
             default: default | s.default,
             merge: s.merge,

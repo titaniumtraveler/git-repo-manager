@@ -13,6 +13,7 @@ use std::mem;
 #[schemars(inline)]
 #[schemars(transform = Self::transform_schema)]
 pub struct Open {
+    // TODO: add aliases
     pub command: Vec<BString>,
     pub working_directory: Option<BString>,
     #[serde(default)]

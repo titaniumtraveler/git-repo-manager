@@ -1,6 +1,9 @@
 use crate::template::Token::*;
 use bstr::ByteSlice;
-use std::{cmp::Ordering, fmt::Debug};
+use std::{
+    cmp::Ordering,
+    fmt::{Debug, Display},
+};
 
 pub struct Template<'a> {
     pub bytes: &'a [u8],
@@ -9,6 +12,16 @@ pub struct Template<'a> {
 impl<'a> Template<'a> {
     pub fn new(bytes: &'a [u8]) -> Self {
         Self { bytes }
+    }
+}
+
+impl Display for Template<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let template = Template::new(self.bytes);
+        for token in template {
+            Debug::fmt(&token, f)?;
+        }
+        Ok(())
     }
 }
 
