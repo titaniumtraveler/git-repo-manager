@@ -22,8 +22,7 @@ pub struct Cli {
     pub global_args: GlobalArgs,
     #[clap(subcommand)]
     pub subcommands: Option<Commands>,
-    #[clap(flatten)]
-    pub args: RepoExpressions,
+    pub task: Option<BString>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -31,11 +30,6 @@ pub enum Commands {
     Clone(CloneCommand),
     Info(Info),
     Completions { shell: Shell },
-}
-
-#[derive(Debug, Clone, Args)]
-pub struct RepoExpressions {
-    args: Vec<BString>,
 }
 
 impl Cli {
@@ -56,108 +50,112 @@ impl Cli {
             };
         }
 
+        let Some(task) = self.task else {
+            Cli::command()
+                .error(
+                    clap::error::ErrorKind::DisplayHelp,
+                    "needs either `subcommand` or task to be set",
+                )
+                .exit()
+        };
+        let task = Task::from(&*task.0);
+        println!("task: {task:?}");
+
         let mut state = State::new();
         state.init_defaults(&self.global_args)?;
-
         println!("{:#?}", state.config.resolved_config);
 
-        let RepoExpressions { args } = self.args;
-        for arg in args {
-            let task = Task::from(&*arg.0);
-            println!("task: {task:?}");
+        let config = &state.config.resolved_config;
 
-            let config = &state.config.resolved_config;
+        let task_host = match task.host {
+            None => None,
+            Some(b"") => {
+                println!("selected default");
+                config.host.iter().find_map(|(_, v)| match v {
+                    Host { default: true, .. } => Some(v),
+                    _ => None,
+                })
+            }
+            Some(host) => {
+                println!("selected `{host}`", host = <&BStr>::from(host));
+                config.host.iter().find_map(|(k, v)| {
+                    if k.as_bytes() == host || v.alias.iter().any(|str| str.0 == host) {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                })
+            }
+        };
 
-            let task_host = match task.host {
-                None => None,
-                Some(b"") => {
-                    println!("selected default");
-                    config.host.iter().find_map(|(_, v)| match v {
-                        Host { default: true, .. } => Some(v),
-                        _ => None,
-                    })
-                }
-                Some(host) => {
-                    println!("selected `{host}`", host = <&BStr>::from(host));
-                    config.host.iter().find_map(|(k, v)| {
-                        if k.as_bytes() == host || v.alias.iter().any(|str| str.0 == host) {
-                            Some(v)
-                        } else {
-                            None
-                        }
-                    })
-                }
-            };
+        let task_repo = match task.repo {
+            None | Some(b"") => {
+                println!("selected default repo");
+                config
+                    .repo
+                    .iter()
+                    .find_map(|(_, v)| if v.default.default { Some(v) } else { None })
+            }
+            Some(repo) => {
+                println!("selected `{repo}`", repo = <&BStr>::from(repo));
+                config.repo.iter().find_map(|(_, v)| {
+                    if v.name
+                        .as_ref()
+                        .is_some_and(|name| name.0.as_slice() == repo)
+                        || v.alias.iter().any(|str| str.as_bytes() == repo)
+                    {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                })
+            }
+        };
 
-            let task_repo = match task.repo {
-                None | Some(b"") => {
-                    println!("selected default repo");
-                    config
-                        .repo
-                        .iter()
-                        .find_map(|(_, v)| if v.default.default { Some(v) } else { None })
-                }
-                Some(repo) => {
-                    println!("selected `{repo}`", repo = <&BStr>::from(repo));
-                    config.repo.iter().find_map(|(_, v)| {
-                        if v.name
-                            .as_ref()
-                            .is_some_and(|name| name.0.as_slice() == repo)
-                            || v.alias.iter().any(|str| str.as_bytes() == repo)
-                        {
-                            Some(v)
-                        } else {
-                            None
-                        }
-                    })
-                }
-            };
+        let task_tree = match task.tree {
+            None => None,
+            Some(b"") => {
+                println!("selected default");
+                config
+                    .tree
+                    .iter()
+                    .find_map(|(_, v)| if v.default.default { Some(v) } else { None })
+            }
+            Some(tree) => {
+                println!("selected `{tree}`", tree = <&BStr>::from(tree));
+                config.tree.iter().find_map(|(_, v)| {
+                    if v.name
+                        .as_ref()
+                        .is_some_and(|name| name.0.as_slice() == tree)
+                        || v.alias.iter().any(|str| str.0 == tree)
+                    {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                })
+            }
+        };
 
-            let task_tree = match task.tree {
-                None => None,
-                Some(b"") => {
-                    println!("selected default");
-                    config
-                        .tree
-                        .iter()
-                        .find_map(|(_, v)| if v.default.default { Some(v) } else { None })
-                }
-                Some(tree) => {
-                    println!("selected `{tree}`", tree = <&BStr>::from(tree));
-                    config.tree.iter().find_map(|(_, v)| {
-                        if v.name
-                            .as_ref()
-                            .is_some_and(|name| name.0.as_slice() == tree)
-                            || v.alias.iter().any(|str| str.0 == tree)
-                        {
-                            Some(v)
-                        } else {
-                            None
-                        }
-                    })
-                }
-            };
+        let task_open = match task.open {
+            None => None,
+            Some(b"") => {
+                println!("selected default");
+                config
+                    .open
+                    .iter()
+                    .find_map(|(_, v)| if v.default { Some(v) } else { None })
+            }
+            Some(open) => {
+                println!("selected `{open}`", open = <&BStr>::from(open));
+                config
+                    .open
+                    .iter()
+                    .find_map(|(k, v)| if k.as_bytes() == open { Some(v) } else { None })
+            }
+        };
 
-            let task_open = match task.open {
-                None => None,
-                Some(b"") => {
-                    println!("selected default");
-                    config
-                        .open
-                        .iter()
-                        .find_map(|(_, v)| if v.default { Some(v) } else { None })
-                }
-                Some(open) => {
-                    println!("selected `{open}`", open = <&BStr>::from(open));
-                    config
-                        .open
-                        .iter()
-                        .find_map(|(k, v)| if k.as_bytes() == open { Some(v) } else { None })
-                }
-            };
-
-            run_task(task_host, task_repo, task_tree, task_open)?;
-        }
+        run_task(task_host, task_repo, task_tree, task_open)?;
         Ok(())
     }
 }
