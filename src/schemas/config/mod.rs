@@ -181,10 +181,10 @@ fn merge_entries<T: std::fmt::Debug + MergeEntry>(
 }
 
 fn pick_default<T>(default: &mut Option<String>, other: Option<String>, map: &BTreeMap<String, T>) {
-    if let Some(other) = other {
-        if map.contains_key(&other) {
-            *default = Some(other)
-        }
+    if let Some(other) = other
+        && map.contains_key(&other)
+    {
+        *default = Some(other)
     }
 }
 

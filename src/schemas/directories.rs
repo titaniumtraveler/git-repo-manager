@@ -54,7 +54,7 @@ impl GlobalArgs {
         PROJECT_PATHS.default_storage_dir()
     }
 
-    pub fn paths(&self) -> Paths {
+    pub fn paths(&self) -> Paths<'_> {
         Paths {
             config_file: self.config_file(),
         }

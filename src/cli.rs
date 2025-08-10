@@ -5,7 +5,7 @@ use crate::{
 };
 use anyhow::{Context, anyhow};
 use bstr::{BStr, ByteSlice};
-use clap::{Args, CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
 use git2::{Repository, build::RepoBuilder};
 use std::{env, fs, io, process::Command};

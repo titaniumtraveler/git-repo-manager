@@ -88,11 +88,11 @@ impl<'a> From<&'a [u8]> for Task<'a> {
         let mut s = Self::default();
         let mut current_token = None;
 
-        if let Some(first) = str.first() {
-            if TokenKind::None.byteset().contains(first) {
-                str = &str[1..];
-                current_token = TokenKind::kind(*first);
-            }
+        if let Some(first) = str.first()
+            && TokenKind::None.byteset().contains(first)
+        {
+            str = &str[1..];
+            current_token = TokenKind::kind(*first);
         }
 
         loop {
