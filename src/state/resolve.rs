@@ -18,126 +18,193 @@ impl State {
         self.resolve_task(task, resolved_task, config)
     }
 
+    pub fn resolve_host_by_name(
+        &mut self,
+        name: &BStr,
+        resolved_task: &mut ResolvedTask,
+        config: &mut Config,
+    ) -> anyhow::Result<()> {
+        resolved_task.host = config
+            .host
+            .iter()
+            .find_map(|(k, v)| {
+                (k.as_bytes() == name || v.alias.iter().any(|str| str.0 == name)).then_some(v)
+            })
+            .cloned();
+        Ok(())
+    }
+
+    pub fn resolve_host_by_manifest(
+        &mut self,
+        _resolved_config: &mut Config,
+        _config: &mut Config,
+    ) -> anyhow::Result<()> {
+        // TODO: actually implement this
+        Ok(())
+    }
+
+    pub fn resolve_host_by_default(
+        &mut self,
+        resolved_task: &mut ResolvedTask,
+        config: &mut Config,
+    ) -> anyhow::Result<()> {
+        resolved_task.host = config
+            .host
+            .iter()
+            .find_map(|(_, v)| v.default.then_some(v))
+            .cloned();
+        Ok(())
+    }
+
+    pub fn resolve_repo_by_name(
+        &mut self,
+        name: &BStr,
+        resolved_task: &mut ResolvedTask,
+        config: &mut Config,
+    ) -> anyhow::Result<()> {
+        resolved_task.repo = config
+            .repo
+            .iter()
+            .find_map(|(k, v)| {
+                (k.as_bytes() == name
+                    || v.name.as_ref().is_some_and(|str| str.0 == name)
+                    || v.alias.iter().any(|str| str == name))
+                .then_some(v)
+            })
+            .cloned();
+        Ok(())
+    }
+
+    pub fn resolve_repo_by_manifest(
+        &mut self,
+        _resolved_config: &mut Config,
+        _config: &mut Config,
+    ) -> anyhow::Result<()> {
+        // TODO: actually implement this
+        Ok(())
+    }
+
+    pub fn resolve_repo_by_default(
+        &mut self,
+        resolved_task: &mut ResolvedTask,
+        config: &mut Config,
+    ) -> anyhow::Result<()> {
+        resolved_task.repo = config
+            .repo
+            .iter()
+            .find_map(|(_, v)| v.default.default.then_some(v))
+            .cloned();
+        Ok(())
+    }
+
+    pub fn resolve_tree_by_name(
+        &mut self,
+        name: &BStr,
+        resolved_task: &mut ResolvedTask,
+        config: &mut Config,
+    ) -> anyhow::Result<()> {
+        resolved_task.tree = config
+            .tree
+            .iter()
+            .find_map(|(k, v)| {
+                (k.as_bytes() == name
+                    || v.name.as_ref().is_some_and(|str| str.0 == name)
+                    || v.alias.iter().any(|str| str.0 == name))
+                .then_some(v)
+            })
+            .cloned();
+        Ok(())
+    }
+
+    pub fn resolve_tree_by_manifest(
+        &mut self,
+        _resolved_config: &mut Config,
+        _config: &mut Config,
+    ) -> anyhow::Result<()> {
+        // TODO: actually implement this
+        Ok(())
+    }
+
+    pub fn resolve_tree_by_default(
+        &mut self,
+        resolved_task: &mut ResolvedTask,
+        config: &mut Config,
+    ) -> anyhow::Result<()> {
+        resolved_task.tree = config
+            .tree
+            .iter()
+            .find_map(|(_, v)| v.default.default.then_some(v))
+            .cloned();
+        Ok(())
+    }
+
+    pub fn resolve_open_by_name(
+        &mut self,
+        name: &BStr,
+        resolved_task: &mut ResolvedTask,
+        config: &mut Config,
+    ) -> anyhow::Result<()> {
+        resolved_task.open = config
+            .open
+            .iter()
+            .find_map(|(k, v)| (k.as_bytes() == name).then_some(v))
+            .cloned();
+        Ok(())
+    }
+
+    pub fn resolve_open_by_manifest(
+        &mut self,
+        _resolved_config: &mut Config,
+        _config: &mut Config,
+    ) -> anyhow::Result<()> {
+        // TODO: actually implement this
+        Ok(())
+    }
+
+    pub fn resolve_open_by_default(
+        &mut self,
+        resolved_task: &mut ResolvedTask,
+        config: &mut Config,
+    ) -> anyhow::Result<()> {
+        resolved_task.open = config
+            .open
+            .iter()
+            .find_map(|(_, v)| v.default.then_some(v))
+            .cloned();
+        Ok(())
+    }
+
     pub fn resolve_task(
         &mut self,
         task: &Task,
         resolved_task: &mut ResolvedTask,
         config: &mut Config,
     ) -> anyhow::Result<()> {
-        if let host @ None = &mut resolved_task.host {
-            *host = match task.host {
-                None => None,
-                Some(b"") => {
-                    println!("selected default");
-                    config
-                        .host
-                        .iter()
-                        .find_map(|(_, v)| match v {
-                            Host { default: true, .. } => Some(v),
-                            _ => None,
-                        })
-                        .cloned()
-                }
-                Some(host) => {
-                    println!("selected `{host}`", host = <&BStr>::from(host));
-                    config
-                        .host
-                        .iter()
-                        .find_map(|(k, v)| {
-                            if k.as_bytes() == host || v.alias.iter().any(|str| str.0 == host) {
-                                Some(v)
-                            } else {
-                                None
-                            }
-                        })
-                        .cloned()
-                }
-            };
+        match task.host {
+            _ if resolved_task.host.is_some() => {}
+            None => {}
+            Some(b"") => self.resolve_host_by_default(resolved_task, config)?,
+            Some(host) => self.resolve_host_by_name(host.as_bstr(), resolved_task, config)?,
         }
 
-        if let repo @ None = &mut resolved_task.repo {
-            *repo = match task.repo {
-                None | Some(b"") => {
-                    println!("selected default repo");
-                    config
-                        .repo
-                        .iter()
-                        .find_map(|(_, v)| if v.default.default { Some(v) } else { None })
-                        .cloned()
-                }
-                Some(repo) => {
-                    println!("selected `{repo}`", repo = <&BStr>::from(repo));
-                    config
-                        .repo
-                        .iter()
-                        .find_map(|(_, v)| {
-                            if v.name
-                                .as_ref()
-                                .is_some_and(|name| name.0.as_slice() == repo)
-                                || v.alias.iter().any(|str| str.as_bytes() == repo)
-                            {
-                                Some(v)
-                            } else {
-                                None
-                            }
-                        })
-                        .cloned()
-                }
-            };
+        match task.repo {
+            _ if resolved_task.repo.is_some() => {}
+            None | Some(b"") => self.resolve_repo_by_default(resolved_task, config)?,
+            Some(repo) => self.resolve_repo_by_name(repo.as_bstr(), resolved_task, config)?,
         }
 
-        if let tree @ None = &mut resolved_task.tree {
-            *tree = match task.tree {
-                None => None,
-                Some(b"") => {
-                    println!("selected default");
-                    config
-                        .tree
-                        .iter()
-                        .find_map(|(_, v)| if v.default.default { Some(v) } else { None })
-                        .cloned()
-                }
-                Some(tree) => {
-                    println!("selected `{tree}`", tree = <&BStr>::from(tree));
-                    config
-                        .tree
-                        .iter()
-                        .find_map(|(_, v)| {
-                            if v.name
-                                .as_ref()
-                                .is_some_and(|name| name.0.as_slice() == tree)
-                                || v.alias.iter().any(|str| str.0 == tree)
-                            {
-                                Some(v)
-                            } else {
-                                None
-                            }
-                        })
-                        .cloned()
-                }
-            };
+        match task.tree {
+            _ if resolved_task.tree.is_some() => {}
+            None => {}
+            Some(b"") => self.resolve_tree_by_default(resolved_task, config)?,
+            Some(tree) => self.resolve_tree_by_name(tree.as_bstr(), resolved_task, config)?,
         }
 
-        if let open @ None = &mut resolved_task.open {
-            *open = match task.open {
-                None => None,
-                Some(b"") => {
-                    println!("selected default");
-                    config
-                        .open
-                        .iter()
-                        .find_map(|(_, v)| if v.default { Some(v) } else { None })
-                        .cloned()
-                }
-                Some(open) => {
-                    println!("selected `{open}`", open = <&BStr>::from(open));
-                    config
-                        .open
-                        .iter()
-                        .find_map(|(k, v)| if k.as_bytes() == open { Some(v) } else { None })
-                        .cloned()
-                }
-            };
+        match task.open {
+            _ if resolved_task.open.is_some() => {}
+            None => {}
+            Some(b"") => self.resolve_open_by_default(resolved_task, config)?,
+            Some(open) => self.resolve_open_by_name(open.as_bstr(), resolved_task, config)?,
         }
 
         Ok(())
