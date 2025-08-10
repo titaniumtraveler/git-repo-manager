@@ -10,6 +10,7 @@ use std::{
 };
 
 pub mod query;
+pub mod resolve;
 
 #[derive(Debug, Default)]
 pub struct State {
