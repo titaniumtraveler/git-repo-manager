@@ -5,8 +5,8 @@ use crate::{
 };
 use anyhow::{Context, anyhow};
 use bstr::{BStr, ByteSlice};
-use git2::{Repository, build::RepoBuilder};
-use std::{fs, process::Command};
+use git2::{Repository, Worktree, build::RepoBuilder};
+use std::{fmt::Display, fs, process::Command};
 
 impl State {
     pub fn resolve(
@@ -221,117 +221,94 @@ pub struct ResolvedTask {
 
 impl ResolvedTask {
     pub fn run(&self) -> anyhow::Result<()> {
-        let repo = self
-            .repo
-            .as_ref()
-            .ok_or_else(|| anyhow!("repo needs to be present"))?; // TODO: infer from working directory
-        let repo_path = repo
-            .path
-            .as_ref()
-            .ok_or_else(|| anyhow!("repo needs path to be set"))?
-            .to_path()?;
+        let repo = self.repo()?;
+        self.tree(&repo)?;
+        self.open()?;
+
+        Ok(())
+    }
+
+    pub fn repo(&self) -> anyhow::Result<git2::Repository> {
+        let path = match &self.repo {
+            Some(Repo {
+                path: Some(path), ..
+            }) => path.0.to_path()?,
+            _ => return Err(anyhow!("")),
+        };
 
         // TODO: allow force `--bare`. Maybe just warn when not as expected.
-        let repository = {
-            use git2::RepositoryOpenFlags as RepoOF;
-            match Repository::open_ext(
-                repo_path,
-                RepoOF::NO_SEARCH | RepoOF::NO_DOTGIT,
-                &[] as &[&std::ffi::OsStr],
-            ) {
-                Ok(repo) => repo,
-                Err(err) if err.code() == git2::ErrorCode::NotFound => {
-                    let mut builder = RepoBuilder::new();
+        match Repository::open_ext(
+            path,
+            {
+                use git2::RepositoryOpenFlags as RepoFlags;
 
-                    let host = self.host.as_ref().ok_or_else(|| {
-                        anyhow!("host needs to be set for the repo to be cloneable")
-                    })?;
+                RepoFlags::NO_SEARCH | RepoFlags::NO_DOTGIT
+            },
+            &[] as &[&std::ffi::OsStr],
+        ) {
+            Ok(repo) => Ok(repo),
+            Err(err) if err.code() == git2::ErrorCode::NotFound => {
+                let mut builder = RepoBuilder::new();
 
-                    let host_url = host
-                        .host
-                        .as_ref()
-                        .ok_or_else(|| {
-                            anyhow!("host needs to be set for the repo to be cloneable")
-                        })?
-                        .0
-                        .as_bstr()
-                        .to_str()?;
+                let (_key, url, _pass_program) = match &self.host {
+                    Some(Host {
+                        host: Some(url),
+                        key: Some(key),
+                        pass_program,
+                        ..
+                    }) => (
+                        key.as_bstr().to_path()?,
+                        url.as_bstr().to_str()?,
+                        pass_program,
+                    ),
+                    _ => return Err(anyhow!("host is missing fields required fields")),
+                };
 
-                    builder
-                        .fetch_options({
-                            use git2::{Cred, RemoteCallbacks};
+                builder
+                    .fetch_options({
+                        use git2::{Cred, RemoteCallbacks};
 
-                            // Prepare callbacks.
-                            let mut callbacks = RemoteCallbacks::new();
-                            callbacks.credentials(|_url, username_from_url, _allowed_types| {
-                                Cred::ssh_key(
-                                    username_from_url.unwrap(),
-                                    None,
-                                    host.key
-                                        .as_ref()
-                                        .ok_or_else(|| {
-                                            git2::Error::from_str("key needs to be set to clone")
-                                        })?
-                                        .to_path()
-                                        .map_err(|err| git2::Error::from_str(&err.to_string()))?,
-                                    Some(
-                                        build_cmd(
-                                            host.pass_program.iter().map(|str| str.0.as_bstr()),
-                                        )
-                                        .map_err(|err| git2::Error::from_str(&err.to_string()))?
-                                        .output()
-                                        .map_err(|err| git2::Error::from_str(&err.to_string()))?
-                                        .stdout
-                                        .to_str()
-                                        .map_err(|err| git2::Error::from_str(&err.to_string()))?
-                                        .trim_end_matches('\n'),
-                                    ),
-                                )
-                            });
+                        let mut callbacks = RemoteCallbacks::new();
+                        callbacks.credentials(|_url, username_from_url, _allowed_types| {
+                            Cred::ssh_key_from_agent(username_from_url.ok_or_else(|| {
+                                into_git2_err("missing username to use for ssh agent")
+                            })?)
+                        });
 
-                            // Prepare fetch options.
-                            let mut fo = git2::FetchOptions::new();
-                            fo.remote_callbacks(callbacks);
+                        let mut fo = git2::FetchOptions::new();
+                        fo.remote_callbacks(callbacks);
 
-                            fo
-                        })
-                        .bare(true)
-                        .clone(host_url, repo_path)
-                        .with_context(|| anyhow!("failed to clone repo from {host_url}"))?
-                }
-                Err(err) => return Err(err.into()),
+                        fo
+                    })
+                    .bare(true)
+                    .clone(url, path)
+                    .with_context(|| anyhow!("failed to clone repo from {url}"))
             }
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    pub fn tree(&self, repository: &git2::Repository) -> anyhow::Result<Worktree> {
+        let (name, path) = match &self.tree {
+            Some(Tree {
+                name: Some(name),
+                path: Some(path),
+                ..
+            }) => (name.0.as_bstr().to_str()?, path.0.as_bstr().to_path()?),
+            _ => return Err(anyhow!("name and path of the tree must be defined")),
         };
 
-        let Some(tree) = self.tree.as_ref() else {
-            if self.open.as_ref().is_some() {
-                return Err(anyhow!("open was set, but no tree was given"));
-            }
-            return Ok(());
-        };
-
-        let tree_name = tree
-            .name
-            .as_ref()
-            .ok_or_else(|| anyhow!("tree needs name to be set"))?
-            .to_str()?;
-
-        let tree_path = tree
-            .path
-            .as_ref()
-            .ok_or_else(|| anyhow!("tree needs path to be set"))?
-            .to_path()?;
-
-        if !tree_path.exists() {
+        if path.exists() {
+            repository.find_worktree(name).map_err(Into::into)
+        } else {
             use git2::{
                 BranchType::{Local, Remote},
                 WorktreeAddOptions,
             };
 
             fs::create_dir_all(
-                tree_path
-                    .parent()
-                    .ok_or_else(|| anyhow!("tree.path should have parent"))?,
+                path.parent()
+                    .context("tree.path should have parent to place the worktree into")?,
             )?;
 
             // Borrow checker makes me sad here. If you need to, just keep temporaries
@@ -339,18 +316,18 @@ impl ResolvedTask {
             let reference;
             repository
                 .worktree(
-                    tree_name,
-                    tree_path,
+                    name,
+                    path,
                     Some(&'opts: {
                         let mut opts = WorktreeAddOptions::new();
 
-                        if let Ok(branch) = repository.find_branch(tree_name, Local) {
+                        if let Ok(branch) = repository.find_branch(name, Local) {
                             reference = branch.into_reference();
                             opts.reference(Some(&reference));
                             break 'opts opts;
                         }
 
-                        if let Ok(branch) = repository.find_branch(tree_name, Remote) {
+                        if let Ok(branch) = repository.find_branch(name, Remote) {
                             reference = branch.into_reference();
                             opts.reference(Some(&reference));
                             break 'opts opts;
@@ -362,15 +339,37 @@ impl ResolvedTask {
                         opts
                     }),
                 )
-                .with_context(|| anyhow!("failed to create worktree"))?;
+                .context("failed to create worktree")
         }
+    }
 
-        let Some(open) = self.open.as_ref() else {
-            return Ok(());
+    pub fn open(&self) -> anyhow::Result<()> {
+        let Some(open) = &self.open else {
+            return Err(anyhow!("missing open"));
         };
 
+        let path = {
+            match (&self.tree, &self.repo) {
+                (
+                    Some(Tree {
+                        path: Some(path), ..
+                    }),
+                    _,
+                )
+                | (
+                    _,
+                    Some(Repo {
+                        path: Some(path), ..
+                    }),
+                ) => path,
+                _ => return Err(anyhow!("open needs a path")),
+            }
+        }
+        .as_bstr()
+        .to_path()?;
+
         let mut cmd = build_cmd(open.command.iter().map(|str| str.0.as_bstr()))?;
-        cmd.current_dir(tree_path);
+        cmd.current_dir(path);
         cmd.status()?;
 
         Ok(())
@@ -392,4 +391,8 @@ fn build_cmd<'a>(command: impl IntoIterator<Item = &'a BStr>) -> anyhow::Result<
     }));
     err?;
     Ok(cmd)
+}
+
+fn into_git2_err<E: Display>(err: E) -> git2::Error {
+    git2::Error::from_str(&err.to_string())
 }
