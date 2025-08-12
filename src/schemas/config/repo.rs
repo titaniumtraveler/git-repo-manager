@@ -44,7 +44,7 @@ pub struct Repo {
     pub manifest: Option<BString>,
 
     #[serde(default)]
-    pub alias: Vec<String>,
+    pub alias: Vec<BString>,
 
     #[serde(deserialize_with = "verbose::bool::deserialize", default)]
     pub default: RepoDefault,

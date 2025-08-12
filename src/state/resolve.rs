@@ -2,9 +2,10 @@ use crate::{
     schemas::config::{Config, Host, Open, Repo, Tree},
     state::State,
     task::Task,
+    template::{Template, Token},
 };
 use anyhow::{Context, anyhow};
-use bstr::{BStr, ByteSlice};
+use bstr::{BStr, BString, ByteSlice, ByteVec};
 use git2::{Repository, Worktree, build::RepoBuilder};
 use std::{fmt::Display, fs, process::Command};
 
@@ -68,7 +69,7 @@ impl State {
             .find_map(|(k, v)| {
                 (k.as_bytes() == name
                     || v.name.as_ref().is_some_and(|str| str.0 == name)
-                    || v.alias.iter().any(|str| str == name))
+                    || v.alias.iter().any(|str| str.as_bstr() == name.as_bstr()))
                 .then_some(v)
             })
             .cloned();
@@ -395,4 +396,48 @@ fn build_cmd<'a>(command: impl IntoIterator<Item = &'a BStr>) -> anyhow::Result<
 
 fn into_git2_err<E: Display>(err: E) -> git2::Error {
     git2::Error::from_str(&err.to_string())
+}
+
+pub trait Resolve {
+    fn by_name(
+        &mut self,
+        name: &BStr,
+        resolved_task: &mut ResolvedTask,
+        config: &mut Config,
+    ) -> anyhow::Result<()>;
+
+    fn by_manifest(
+        &mut self,
+        _resolved_config: &mut Config,
+        _config: &mut Config,
+    ) -> anyhow::Result<()>;
+
+    fn by_default(
+        &mut self,
+        resolved_task: &mut ResolvedTask,
+        config: &mut Config,
+    ) -> anyhow::Result<()>;
+
+    fn expand_template_var<'a>(
+        &self,
+        name: &'a BStr,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), TemplateError<'a>>;
+
+    fn template<'a>(&self, bstr: &'a BStr) -> Result<BString, TemplateError<'a>> {
+        let mut buf = Vec::with_capacity(bstr.len());
+
+        for token in Template::new(bstr.as_ref()) {
+            match token {
+                Token::Str(str) => buf.push_str(str),
+                Token::Var(var) => self.expand_template_var(var.as_bstr(), &mut buf)?,
+            }
+        }
+
+        Ok(BString::new(buf))
+    }
+}
+
+pub enum TemplateError<'a> {
+    MissingVar(&'a BStr),
 }

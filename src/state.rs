@@ -9,7 +9,7 @@ use std::{
     path::PathBuf,
 };
 
-pub mod query;
+// pub mod query;
 pub mod resolve;
 
 #[derive(Debug, Default)]

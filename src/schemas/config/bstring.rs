@@ -2,14 +2,14 @@ use bstr::ByteSlice;
 use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::{Deserialize, Serialize};
 use std::{
-    borrow::Cow,
+    borrow::{Borrow, Cow},
     ffi::{OsStr, OsString},
     fmt::{Debug, Display},
     ops::{Deref, DerefMut},
     os::unix::ffi::OsStringExt,
 };
 
-#[derive(Default, Clone, PartialEq)]
+#[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BString(pub Vec<u8>);
 
 impl Debug for BString {
@@ -55,7 +55,7 @@ impl<'de> Deserialize<'de> for BString {
 }
 
 impl Deref for BString {
-    type Target = Vec<u8>;
+    type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -77,5 +77,29 @@ impl From<OsString> for BString {
 impl From<&OsStr> for BString {
     fn from(value: &OsStr) -> Self {
         BString(OsString::into_vec(value.to_owned()))
+    }
+}
+
+impl From<String> for BString {
+    fn from(value: String) -> Self {
+        BString(value.into_bytes())
+    }
+}
+
+impl From<&str> for BString {
+    fn from(value: &str) -> Self {
+        BString(value.to_owned().into_bytes())
+    }
+}
+
+impl From<&[u8]> for BString {
+    fn from(value: &[u8]) -> Self {
+        Self(value.to_owned())
+    }
+}
+
+impl Borrow<[u8]> for BString {
+    fn borrow(&self) -> &[u8] {
+        self.0.as_slice()
     }
 }

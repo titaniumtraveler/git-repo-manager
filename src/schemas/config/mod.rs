@@ -41,13 +41,13 @@ pub struct Config {
     #[schemars(with = "String", default)]
     schema: IgnoredAny,
     #[serde(deserialize_with = "verbose::map::deserialize", default)]
-    pub host: BTreeMap<String, Host>,
+    pub host: BTreeMap<BString, Host>,
     #[serde(deserialize_with = "verbose::map::deserialize", default)]
-    pub repo: BTreeMap<String, Repo>,
+    pub repo: BTreeMap<BString, Repo>,
     #[serde(deserialize_with = "verbose::map::deserialize", default)]
-    pub tree: BTreeMap<String, Tree>,
+    pub tree: BTreeMap<BString, Tree>,
     #[serde(deserialize_with = "verbose::map::deserialize", default)]
-    pub open: BTreeMap<String, Open>,
+    pub open: BTreeMap<BString, Open>,
     #[serde(default)]
     pub default: ConfigDefault,
 }
@@ -64,7 +64,7 @@ impl Config {
             repo: {
                 let mut storage = default.repo;
                 storage.insert(
-                    "default".to_owned(),
+                    "default".into(),
                     Repo {
                         name: Some(BString("repo/${host.name}/${repo.name}".into())),
                         path: Some(BString(
@@ -85,7 +85,7 @@ impl Config {
                 let mut tree = default.tree;
 
                 tree.insert(
-                    "default".to_owned(),
+                    "default".into(),
                     Tree {
                         name: Some(BString(
                             "tree/${host.name}/${repo.name}/${tree.name}".into(),
@@ -120,14 +120,17 @@ impl Config {
 
     pub fn resolve_defaults(&mut self) {
         fn find_default<T>(
-            map: &BTreeMap<String, T>,
+            map: &BTreeMap<BString, T>,
             mut is_default: impl FnMut(&&T) -> bool,
-        ) -> Option<String> {
+        ) -> Option<BString> {
             map.iter()
                 .find(|(_, v)| is_default(v))
-                .map(|(k, _)| k.as_str())
-                .or_else(|| map.contains_key("default").then_some("default"))
-                .map(ToOwned::to_owned)
+                .map(|(k, _)| k.0.as_slice())
+                .or_else(|| {
+                    map.contains_key(b"default".as_slice())
+                        .then_some("default".as_bytes())
+                })
+                .map(Into::into)
         }
 
         let ConfigDefault {
@@ -149,13 +152,13 @@ impl Config {
         let Self {
             schema: _,
             host,
-            repo: storage,
+            repo,
             tree,
             open,
             default,
         } = other;
         merge_entries(&mut self.host, host);
-        merge_entries(&mut self.repo, storage);
+        merge_entries(&mut self.repo, repo);
         merge_entries(&mut self.tree, tree);
         merge_entries(&mut self.open, open);
 
@@ -167,8 +170,8 @@ impl Config {
 }
 
 fn merge_entries<T: std::fmt::Debug + MergeEntry>(
-    s: &mut BTreeMap<String, T>,
-    o: BTreeMap<String, T>,
+    s: &mut BTreeMap<BString, T>,
+    o: BTreeMap<BString, T>,
 ) {
     o.into_iter().for_each(|(key, value)| match s.entry(key) {
         Entry::Vacant(e) => {
@@ -180,7 +183,11 @@ fn merge_entries<T: std::fmt::Debug + MergeEntry>(
     });
 }
 
-fn pick_default<T>(default: &mut Option<String>, other: Option<String>, map: &BTreeMap<String, T>) {
+fn pick_default<T>(
+    default: &mut Option<BString>,
+    other: Option<BString>,
+    map: &BTreeMap<BString, T>,
+) {
     if let Some(other) = other
         && map.contains_key(&other)
     {
@@ -194,10 +201,10 @@ fn pick_default<T>(default: &mut Option<String>, other: Option<String>, map: &BT
 #[schemars(inline)]
 #[schemars(rename = "config/default")]
 pub struct ConfigDefault {
-    pub host: Option<String>,
-    pub repo: Option<String>,
-    pub tree: Option<String>,
-    pub open: Option<String>,
+    pub host: Option<BString>,
+    pub repo: Option<BString>,
+    pub tree: Option<BString>,
+    pub open: Option<BString>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Default, PartialEq, Eq, PartialOrd, Ord)]
