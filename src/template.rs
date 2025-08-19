@@ -87,7 +87,10 @@ impl<'a> Iterator for Template<'a> {
 
         let mut str = self.bytes;
         match str.find("$") {
-            None => Some(Str(str)),
+            None => {
+                self.bytes = b"";
+                Some(Str(str))
+            }
             Some(0) => {
                 str = &str[1..];
                 match str.first() {
