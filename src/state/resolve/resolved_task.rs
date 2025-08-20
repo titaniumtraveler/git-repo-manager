@@ -23,9 +23,19 @@ pub struct ResolvedTask {
 
 impl ResolvedTask {
     pub fn run(&self) -> anyhow::Result<()> {
-        let repo = self.repo()?;
-        self.tree(&repo)?;
-        self.open()?;
+        let repo = if self.repo.is_some() {
+            self.repo()?
+        } else {
+            return Ok(());
+        };
+
+        if self.tree.is_some() {
+            self.tree(&repo)?;
+        }
+
+        if self.open.is_some() {
+            self.open()?;
+        }
 
         Ok(())
     }
@@ -37,7 +47,7 @@ impl ResolvedTask {
             },
         ) = &self.repo
         else {
-            return Err(anyhow!(""));
+            return Err(anyhow!("repo needs path to be set"));
         };
         let path = path.as_bstr().to_path()?;
 
@@ -59,7 +69,7 @@ impl ResolvedTask {
                     Some(Host {
                         host: Some(url), ..
                     }) => url.as_bstr().to_str()?,
-                    _ => return Err(anyhow!("host is missing fields required fields")),
+                    _ => return Err(anyhow!("host is missing required fields")),
                 };
 
                 builder
