@@ -59,14 +59,12 @@ impl Cli {
                 .exit()
         };
         let task = Task::from(&*task.0);
-        eprintln!("task: {task:?}");
 
         let mut state = State::new()?;
         state.init_defaults(&self.global_args)?;
 
         let mut resolved_task = ResolvedTask::default();
         state.resolve(task, &mut resolved_task)?;
-        println!("{}", serde_json::to_string_pretty(&resolved_task)?);
         resolved_task.run()
     }
 }

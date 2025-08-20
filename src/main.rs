@@ -6,7 +6,10 @@ fn main() -> anyhow::Result<()> {
     let res = Cli::parse().run();
     match res {
         Ok(()) => (),
-        Err(err) => println!("{err:#?}"),
+        Err(err) => {
+            eprintln!("{err:#?}");
+            std::process::exit(1)
+        }
     }
     Ok(())
 }
