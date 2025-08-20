@@ -70,12 +70,25 @@
                   "null"
                 ]
               },
+              "manifest": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
               "merge": {
                 "$ref": "#/$defs/merge",
                 "default": {
                   "behavior": "merge",
                   "only-if": ""
                 }
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false
@@ -97,8 +110,16 @@
           {
             "type": "object",
             "properties": {
+              "alias": {
+                "type": "array",
+                "default": [],
+                "items": {
+                  "type": "string"
+                }
+              },
               "command": {
                 "type": "array",
+                "default": [],
                 "items": {
                   "type": "string"
                 }
@@ -107,6 +128,27 @@
                 "type": "boolean",
                 "default": false
               },
+              "directory": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
+              "environment": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "default": {}
+              },
+              "manifest": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
               "merge": {
                 "$ref": "#/$defs/merge",
                 "default": {
@@ -114,17 +156,14 @@
                   "only-if": ""
                 }
               },
-              "working-directory": {
+              "name": {
                 "type": [
                   "string",
                   "null"
                 ]
               }
             },
-            "additionalProperties": false,
-            "required": [
-              "command"
-            ]
+            "additionalProperties": false
           }
         ]
       },
@@ -148,54 +187,10 @@
                 }
               },
               "default": {
-                "default": {
-                  "default": false,
-                  "host": null,
-                  "open": null,
-                  "tree": null
-                },
-                "oneOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "default": {
-                        "type": "boolean",
-                        "default": false
-                      },
-                      "host": {
-                        "description": "The default host of this repo",
-                        "type": [
-                          "string",
-                          "null"
-                        ],
-                        "default": null
-                      },
-                      "open": {
-                        "description": "The default open of this repo",
-                        "type": [
-                          "string",
-                          "null"
-                        ],
-                        "default": null
-                      },
-                      "tree": {
-                        "description": "The default tree of this repo",
-                        "type": [
-                          "string",
-                          "null"
-                        ],
-                        "default": null
-                      }
-                    },
-                    "additionalProperties": false
-                  }
-                ]
+                "type": "boolean",
+                "default": false
               },
               "manifest": {
-                "description": "file describing the sub trees of the `tree` that contains multiple trees\n- defaults to true if `path` references `${repo/*}`\n- if true, derive from path\n  - would be `~/projects/config.toml`\n- if path template, that path template\n  - if not absolute, relative to",
                 "type": [
                   "string",
                   "null"
@@ -210,12 +205,10 @@
                 }
               },
               "name": {
-                "description": "unique identifier of the repo\n- if none, derive from path\n- if template, might point to multiple",
                 "type": [
                   "string",
                   "null"
-                ],
-                "default": null
+                ]
               },
               "path": {
                 "description": "path pointing to the repo\n- if template, potentially pointing to multiple\n- allows for `${entry/name}`\n  ```toml\n  [tree.default]\n  path = \"~/${entry.name}\"\n  name = \"projects/${host.name}/${repo.name}.git\"\n  manifest = true\n  ```",
@@ -256,46 +249,18 @@
                   "type": "string"
                 }
               },
+              "branch": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null
+              },
               "default": {
-                "default": {
-                  "default": false,
-                  "host": null,
-                  "open": null
-                },
-                "oneOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "default": {
-                        "type": "boolean",
-                        "default": false
-                      },
-                      "host": {
-                        "description": "The default host of this repo",
-                        "type": [
-                          "string",
-                          "null"
-                        ],
-                        "default": null
-                      },
-                      "open": {
-                        "description": "The default open of this repo",
-                        "type": [
-                          "string",
-                          "null"
-                        ],
-                        "default": null
-                      }
-                    },
-                    "additionalProperties": false
-                  }
-                ]
+                "type": "boolean",
+                "default": false
               },
               "manifest": {
-                "description": "file describing the sub repos of the `repo` that contains multiple repos\n- defaults to true if `path` references `${repo/*}`\n- if true, derive from path\n  - would be `~/projects/config.toml`\n- if path template, that path template\n  - if not absolute, relative to",
                 "type": [
                   "string",
                   "null"
@@ -310,23 +275,13 @@
                 }
               },
               "name": {
-                "description": "unique identifier of the tree\n- if none, derive from path\n- if template, might point to multiple",
                 "type": [
                   "string",
                   "null"
-                ],
-                "default": null
+                ]
               },
               "path": {
                 "description": "path pointing to the tree\n- if template, potentially pointing to multiple\n- allows for `${entry/name}`\n  ```toml\n  [tree.default]\n  path = \"~/${entry.name}\"\n  name = \"projects/${host.name}/${repo.name}/${tree.name}\"\n  manifest = true\n  ```",
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "default": null
-              },
-              "repo": {
-                "description": "Repo this tree is associated with",
                 "type": [
                   "string",
                   "null"

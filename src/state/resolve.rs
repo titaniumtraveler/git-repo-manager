@@ -1,443 +1,422 @@
 use crate::{
-    schemas::config::{Config, Host, Open, Repo, Tree},
-    state::State,
+    schemas::{
+        config::{BString, Config, ConfigSource, Host, Open, Repo, Tree, common::Common},
+        utils::verbose::bool,
+    },
+    state::{State, config_stack::ConfigStack},
     task::Task,
     template::{Template, Token},
 };
-use anyhow::{Context, anyhow};
-use bstr::{BStr, BString, ByteSlice, ByteVec};
-use git2::{Repository, Worktree, build::RepoBuilder};
-use std::{fmt::Display, fs, process::Command};
+use anyhow::anyhow;
+use bstr::{BStr, ByteSlice, ByteVec};
+use directories_next::ProjectDirs;
+use std::{
+    borrow::Borrow,
+    collections::BTreeMap,
+    env,
+    ops::ControlFlow,
+    os::unix::ffi::OsStrExt,
+    path::{Path, PathBuf},
+};
+
+pub use self::resolved_task::ResolvedTask;
+
+mod resolved_task;
+
+trait ToControlFlow<B, C> {
+    fn to_control_flow(self) -> ControlFlow<B, C>;
+}
+
+impl<B, C> ToControlFlow<B, C> for Result<C, B> {
+    fn to_control_flow(self) -> ControlFlow<B, C> {
+        match self {
+            Ok(ok) => ControlFlow::Continue(ok),
+            Err(err) => ControlFlow::Break(err),
+        }
+    }
+}
 
 impl State {
-    pub fn resolve(
-        &mut self,
-        task: &Task,
-        resolved_task: &mut ResolvedTask,
-        config: &mut Config,
-    ) -> anyhow::Result<()> {
-        self.resolve_task(task, resolved_task, config)
-    }
-
-    pub fn resolve_host_by_name(
-        &mut self,
-        name: &BStr,
-        resolved_task: &mut ResolvedTask,
-        config: &mut Config,
-    ) -> anyhow::Result<()> {
-        resolved_task.host = config
-            .host
-            .iter()
-            .find_map(|(k, v)| {
-                (k.as_bytes() == name || v.alias.iter().any(|str| str.0 == name)).then_some(v)
-            })
-            .cloned();
-        Ok(())
-    }
-
-    pub fn resolve_host_by_manifest(
-        &mut self,
-        _resolved_config: &mut Config,
-        _config: &mut Config,
-    ) -> anyhow::Result<()> {
-        // TODO: actually implement this
-        Ok(())
-    }
-
-    pub fn resolve_host_by_default(
-        &mut self,
-        resolved_task: &mut ResolvedTask,
-        config: &mut Config,
-    ) -> anyhow::Result<()> {
-        resolved_task.host = config
-            .host
-            .iter()
-            .find_map(|(_, v)| v.default.then_some(v))
-            .cloned();
-        Ok(())
-    }
-
-    pub fn resolve_repo_by_name(
-        &mut self,
-        name: &BStr,
-        resolved_task: &mut ResolvedTask,
-        config: &mut Config,
-    ) -> anyhow::Result<()> {
-        resolved_task.repo = config
-            .repo
-            .iter()
-            .find_map(|(k, v)| {
-                (k.as_bytes() == name
-                    || v.name.as_ref().is_some_and(|str| str.0 == name)
-                    || v.alias.iter().any(|str| str.as_bstr() == name.as_bstr()))
-                .then_some(v)
-            })
-            .cloned();
-        Ok(())
-    }
-
-    pub fn resolve_repo_by_manifest(
-        &mut self,
-        _resolved_config: &mut Config,
-        _config: &mut Config,
-    ) -> anyhow::Result<()> {
-        // TODO: actually implement this
-        Ok(())
-    }
-
-    pub fn resolve_repo_by_default(
-        &mut self,
-        resolved_task: &mut ResolvedTask,
-        config: &mut Config,
-    ) -> anyhow::Result<()> {
-        resolved_task.repo = config
-            .repo
-            .iter()
-            .find_map(|(_, v)| v.default.default.then_some(v))
-            .cloned();
-        Ok(())
-    }
-
-    pub fn resolve_tree_by_name(
-        &mut self,
-        name: &BStr,
-        resolved_task: &mut ResolvedTask,
-        config: &mut Config,
-    ) -> anyhow::Result<()> {
-        resolved_task.tree = config
-            .tree
-            .iter()
-            .find_map(|(k, v)| {
-                (k.as_bytes() == name
-                    || v.name.as_ref().is_some_and(|str| str.0 == name)
-                    || v.alias.iter().any(|str| str.0 == name))
-                .then_some(v)
-            })
-            .cloned();
-        Ok(())
-    }
-
-    pub fn resolve_tree_by_manifest(
-        &mut self,
-        _resolved_config: &mut Config,
-        _config: &mut Config,
-    ) -> anyhow::Result<()> {
-        // TODO: actually implement this
-        Ok(())
-    }
-
-    pub fn resolve_tree_by_default(
-        &mut self,
-        resolved_task: &mut ResolvedTask,
-        config: &mut Config,
-    ) -> anyhow::Result<()> {
-        resolved_task.tree = config
-            .tree
-            .iter()
-            .find_map(|(_, v)| v.default.default.then_some(v))
-            .cloned();
-        Ok(())
-    }
-
-    pub fn resolve_open_by_name(
-        &mut self,
-        name: &BStr,
-        resolved_task: &mut ResolvedTask,
-        config: &mut Config,
-    ) -> anyhow::Result<()> {
-        resolved_task.open = config
-            .open
-            .iter()
-            .find_map(|(k, v)| (k.as_bytes() == name).then_some(v))
-            .cloned();
-        Ok(())
-    }
-
-    pub fn resolve_open_by_manifest(
-        &mut self,
-        _resolved_config: &mut Config,
-        _config: &mut Config,
-    ) -> anyhow::Result<()> {
-        // TODO: actually implement this
-        Ok(())
-    }
-
-    pub fn resolve_open_by_default(
-        &mut self,
-        resolved_task: &mut ResolvedTask,
-        config: &mut Config,
-    ) -> anyhow::Result<()> {
-        resolved_task.open = config
-            .open
-            .iter()
-            .find_map(|(_, v)| v.default.then_some(v))
-            .cloned();
-        Ok(())
+    pub fn resolve(&mut self, task: Task, resolved_task: &mut ResolvedTask) -> anyhow::Result<()> {
+        self.resolve_task(task, resolved_task)
     }
 
     pub fn resolve_task(
         &mut self,
-        task: &Task,
+        task: Task,
         resolved_task: &mut ResolvedTask,
-        config: &mut Config,
     ) -> anyhow::Result<()> {
-        match task.host {
-            _ if resolved_task.host.is_some() => {}
-            None => {}
-            Some(b"") => self.resolve_host_by_default(resolved_task, config)?,
-            Some(host) => self.resolve_host_by_name(host.as_bstr(), resolved_task, config)?,
-        }
-
-        match task.repo {
-            _ if resolved_task.repo.is_some() => {}
-            None | Some(b"") => self.resolve_repo_by_default(resolved_task, config)?,
-            Some(repo) => self.resolve_repo_by_name(repo.as_bstr(), resolved_task, config)?,
-        }
-
-        match task.tree {
-            _ if resolved_task.tree.is_some() => {}
-            None => {}
-            Some(b"") => self.resolve_tree_by_default(resolved_task, config)?,
-            Some(tree) => self.resolve_tree_by_name(tree.as_bstr(), resolved_task, config)?,
-        }
-
-        match task.open {
-            _ if resolved_task.open.is_some() => {}
-            None => {}
-            Some(b"") => self.resolve_open_by_default(resolved_task, config)?,
-            Some(open) => self.resolve_open_by_name(open.as_bstr(), resolved_task, config)?,
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct ResolvedTask {
-    pub host: Option<Host>,
-    pub repo: Option<Repo>,
-    pub tree: Option<Tree>,
-    pub open: Option<Open>,
-}
-
-impl ResolvedTask {
-    pub fn run(&self) -> anyhow::Result<()> {
-        let repo = self.repo()?;
-        self.tree(&repo)?;
-        self.open()?;
-
-        Ok(())
-    }
-
-    pub fn repo(&self) -> anyhow::Result<git2::Repository> {
-        let path = match &self.repo {
-            Some(Repo {
-                path: Some(path), ..
-            }) => path.0.to_path()?,
-            _ => return Err(anyhow!("")),
-        };
-
-        // TODO: allow force `--bare`. Maybe just warn when not as expected.
-        match Repository::open_ext(
-            path,
-            {
-                use git2::RepositoryOpenFlags as RepoFlags;
-
-                RepoFlags::NO_SEARCH | RepoFlags::NO_DOTGIT
-            },
-            &[] as &[&std::ffi::OsStr],
-        ) {
-            Ok(repo) => Ok(repo),
-            Err(err) if err.code() == git2::ErrorCode::NotFound => {
-                let mut builder = RepoBuilder::new();
-
-                let (_key, url, _pass_program) = match &self.host {
-                    Some(Host {
-                        host: Some(url),
-                        key: Some(key),
-                        pass_program,
-                        ..
-                    }) => (
-                        key.as_bstr().to_path()?,
-                        url.as_bstr().to_str()?,
-                        pass_program,
-                    ),
-                    _ => return Err(anyhow!("host is missing fields required fields")),
-                };
-
-                builder
-                    .fetch_options({
-                        use git2::{Cred, RemoteCallbacks};
-
-                        let mut callbacks = RemoteCallbacks::new();
-                        callbacks.credentials(|_url, username_from_url, _allowed_types| {
-                            Cred::ssh_key_from_agent(username_from_url.ok_or_else(|| {
-                                into_git2_err("missing username to use for ssh agent")
-                            })?)
-                        });
-
-                        let mut fo = git2::FetchOptions::new();
-                        fo.remote_callbacks(callbacks);
-
-                        fo
-                    })
-                    .bare(true)
-                    .clone(url, path)
-                    .with_context(|| anyhow!("failed to clone repo from {url}"))
+        let mut store_queue = Vec::new();
+        let mut stack_queue = Vec::new();
+        let mut args = {
+            ResolveArgs {
+                key: b"".as_bstr(),
+                path: Path::new(""),
+                dirs: &self.dirs,
+                task,
+                resolved_task,
+                config_stack: const {
+                    &ConfigStack {
+                        store: BTreeMap::new(),
+                        stack: Vec::new(),
+                    }
+                },
+                store_queue: &mut store_queue,
+                stack_queue: &mut stack_queue,
             }
-            Err(err) => Err(err.into()),
-        }
-    }
-
-    pub fn tree(&self, repository: &git2::Repository) -> anyhow::Result<Worktree> {
-        let (name, path) = match &self.tree {
-            Some(Tree {
-                name: Some(name),
-                path: Some(path),
-                ..
-            }) => (name.0.as_bstr().to_str()?, path.0.as_bstr().to_path()?),
-            _ => return Err(anyhow!("name and path of the tree must be defined")),
         };
 
-        if path.exists() {
-            repository.find_worktree(name).map_err(Into::into)
-        } else {
-            use git2::{
-                BranchType::{Local, Remote},
-                WorktreeAddOptions,
-            };
-
-            fs::create_dir_all(
-                path.parent()
-                    .context("tree.path should have parent to place the worktree into")?,
-            )?;
-
-            // Borrow checker makes me sad here. If you need to, just keep temporaries
-            // around as long as they are referenced...
-            let reference;
-            repository
-                .worktree(
-                    name,
-                    path,
-                    Some(&'opts: {
-                        let mut opts = WorktreeAddOptions::new();
-
-                        if let Ok(branch) = repository.find_branch(name, Local) {
-                            reference = branch.into_reference();
-                            opts.reference(Some(&reference));
-                            break 'opts opts;
-                        }
-
-                        if let Ok(branch) = repository.find_branch(name, Remote) {
-                            reference = branch.into_reference();
-                            opts.reference(Some(&reference));
-                            break 'opts opts;
-                        }
-
-                        reference = repository.head()?;
-                        opts.reference(Some(&reference));
-
-                        opts
-                    }),
-                )
-                .context("failed to create worktree")
+        match task.host.is_some_and(<[u8]>::is_empty) {
+            true => args.resolve_in_stack(Host::by_default, &mut self.configs)?,
+            false => args.resolve_in_stack(Host::by_task_name, &mut self.configs)?,
         }
-    }
-
-    pub fn open(&self) -> anyhow::Result<()> {
-        let Some(open) = &self.open else {
-            return Err(anyhow!("missing open"));
-        };
-
-        let path = {
-            match (&self.tree, &self.repo) {
-                (
-                    Some(Tree {
-                        path: Some(path), ..
-                    }),
-                    _,
-                )
-                | (
-                    _,
-                    Some(Repo {
-                        path: Some(path), ..
-                    }),
-                ) => path,
-                _ => return Err(anyhow!("open needs a path")),
-            }
+        match task.repo.is_some_and(<[u8]>::is_empty) {
+            true => args.resolve_in_stack(Repo::by_default, &mut self.configs)?,
+            false => args.resolve_in_stack(Repo::by_task_name, &mut self.configs)?,
         }
-        .as_bstr()
-        .to_path()?;
+        match task.tree.is_some_and(<[u8]>::is_empty) {
+            true => args.resolve_in_stack(Tree::by_default, &mut self.configs)?,
+            false => args.resolve_in_stack(Tree::by_task_name, &mut self.configs)?,
+        }
+        match task.open.is_some_and(<[u8]>::is_empty) {
+            true => args.resolve_in_stack(Open::by_default, &mut self.configs)?,
+            false => args.resolve_in_stack(Open::by_task_name, &mut self.configs)?,
+        }
 
-        let mut cmd = build_cmd(open.command.iter().map(|str| str.0.as_bstr()))?;
-        cmd.current_dir(path);
-        cmd.status()?;
+        args.resolve_in_stack(Host::by_manifest, &mut self.configs)?;
+        args.resolve_in_stack(Repo::by_manifest, &mut self.configs)?;
+        args.resolve_in_stack(Tree::by_manifest, &mut self.configs)?;
+        args.resolve_in_stack(Open::by_manifest, &mut self.configs)?;
 
         Ok(())
     }
 }
 
-fn build_cmd<'a>(command: impl IntoIterator<Item = &'a BStr>) -> anyhow::Result<Command> {
-    let mut iter = command.into_iter();
-    let cmd = iter.next().context("command needs to be non-empty")?;
+pub trait Resolve: Sized {
+    fn common(&self) -> &Common;
+    fn task_ref(task: Task<'_>) -> Option<&'_ [u8]>;
+    fn task_ref_mut<'o, 'i>(task: &'o mut Task<'i>) -> &'o mut Option<&'i [u8]>;
+    fn resolved_task_mut_ref(resolved_task: &mut ResolvedTask) -> &mut Option<Self>;
+    fn resolved_task_new_mut_ref(resolved_task: &mut ResolvedTask) -> &mut Option<PathBuf>;
+    fn config_ref(config: &Config) -> &BTreeMap<BString, Self>;
 
-    let mut err = Ok(());
-    let mut cmd = Command::new(cmd.to_os_str()?);
-    cmd.args(iter.scan((), |_, str| match str.to_os_str() {
-        Ok(str) => Some(str),
-        Err(e) => {
-            err = Err(e);
-            None
+    fn by_task_name(&self, args: &mut ResolveArgs<'_>) -> anyhow::Result<()> {
+        let Some(task_ref) = Self::task_ref(args.task) else {
+            return Ok(());
+        };
+
+        if args.key == task_ref
+            || self
+                .common()
+                .name
+                .as_ref()
+                .is_some_and(|name| name.as_bstr() == task_ref)
+            || self
+                .common()
+                .alias
+                .iter()
+                .any(|name| name.as_bstr() == task_ref)
+        {
+            *Self::resolved_task_mut_ref(args.resolved_task) = Some(self.expand_manifest(args)?);
         }
-    }));
-    err?;
-    Ok(cmd)
-}
+        Ok(())
+    }
 
-fn into_git2_err<E: Display>(err: E) -> git2::Error {
-    git2::Error::from_str(&err.to_string())
-}
+    fn by_manifest(&self, args: &mut ResolveArgs<'_>) -> anyhow::Result<()> {
+        let Some(task_ref) = Self::task_ref(args.task) else {
+            return Ok(());
+        };
 
-pub trait Resolve {
-    fn by_name(
-        &mut self,
-        name: &BStr,
-        resolved_task: &mut ResolvedTask,
-        config: &mut Config,
-    ) -> anyhow::Result<()>;
+        if self.common().manifest.is_some()
+            && (match task_ref.is_empty() {
+                false => {
+                    args.key == task_ref
+                        || self.common().name.as_ref().is_some_and(|name| {
+                            name.as_bstr() == task_ref
+                                || Template::new(name).any(|token| matches!(token, Token::Var(_)))
+                        })
+                        || self
+                            .common()
+                            .alias
+                            .iter()
+                            .any(|name| name.as_bstr() == task_ref)
+                }
+                true => self.common().default,
+            })
+        {
+            *Self::resolved_task_mut_ref(args.resolved_task) = Some(self.expand_manifest(args)?);
+        }
+        Ok(())
+    }
 
-    fn by_manifest(
-        &mut self,
-        _resolved_config: &mut Config,
-        _config: &mut Config,
-    ) -> anyhow::Result<()>;
+    fn by_default(&self, args: &mut ResolveArgs<'_>) -> anyhow::Result<()> {
+        if self.common().default {
+            *Self::resolved_task_mut_ref(args.resolved_task) = Some(self.expand_manifest(args)?);
+        }
+        Ok(())
+    }
 
-    fn by_default(
-        &mut self,
-        resolved_task: &mut ResolvedTask,
-        config: &mut Config,
-    ) -> anyhow::Result<()>;
-
-    fn expand_template_var<'a>(
+    fn expand_template_var(
         &self,
-        name: &'a BStr,
+        name: &BStr,
+        args: &ResolveArgs,
         buf: &mut Vec<u8>,
-    ) -> Result<(), TemplateError<'a>>;
+    ) -> anyhow::Result<bool>;
 
-    fn template<'a>(&self, bstr: &'a BStr) -> Result<BString, TemplateError<'a>> {
+    fn template(&self, bstr: &BStr, args: &mut ResolveArgs) -> anyhow::Result<BString> {
         let mut buf = Vec::with_capacity(bstr.len());
 
         for token in Template::new(bstr.as_ref()) {
             match token {
-                Token::Str(str) => buf.push_str(str),
-                Token::Var(var) => self.expand_template_var(var.as_bstr(), &mut buf)?,
+                Token::Str(str) => {
+                    buf.push_str(str);
+                }
+                Token::Var(var) => match () {
+                    _ if args.expand_template_var(var.as_bstr(), &mut buf)? => {}
+                    _ => {
+                        return Err(anyhow!(
+                            "could not resolve variable `{var}`",
+                            var = var.as_bstr()
+                        ));
+                    }
+                },
             }
         }
 
-        Ok(BString::new(buf))
+        Ok(BString(buf))
+    }
+
+    fn expand(&self, args: &mut ResolveArgs<'_>) -> anyhow::Result<Self>;
+    fn expand_manifest(&self, args: &mut ResolveArgs<'_>) -> anyhow::Result<Self> {
+        if let Some(path) = &self.common().manifest {
+            let path = self.template(path.as_bstr(), args)?.0.into_path_buf()?;
+            let (config, src) = { (Config::from_file(&path)?, ConfigSource::File(path)) };
+
+            let name = self.template(
+                self.common()
+                    .name
+                    .as_deref()
+                    .ok_or_else(|| anyhow!("name needs to be set here"))?
+                    .as_bstr(),
+                args,
+            )?;
+
+            let mut task = args.task;
+            *Self::task_ref_mut(&mut task) = Some(&name);
+            ResolveArgs {
+                key: args.key,
+                path: args.path,
+                dirs: args.dirs,
+                task,
+                resolved_task: args.resolved_task,
+                config_stack: args.config_stack,
+                store_queue: args.store_queue,
+                stack_queue: args.stack_queue,
+            }
+            .resolve_in_config(Self::by_task_name, &src, &config, args.config_stack)
+            .break_value()
+            .unwrap_or(Ok(()))?;
+
+            let ConfigSource::File(src) = src else {
+                unreachable!()
+            };
+
+            args.stack_queue.push(src.clone());
+            args.store_queue.push((src, config));
+
+            match Self::resolved_task_mut_ref(args.resolved_task) {
+                val @ Some(_) => {
+                    let val = val.take().expect("we just checked that `val` is `Some(_)`");
+                    val.expand_manifest(args)
+                }
+                None => {
+                    let (path, _) = args.store_queue.last().expect("we just pushed to this");
+                    *Self::resolved_task_new_mut_ref(args.resolved_task) = Some(path.clone());
+
+                    self.expand(args)
+                }
+            }
+        } else {
+            self.expand(args)
+        }
     }
 }
 
-pub enum TemplateError<'a> {
-    MissingVar(&'a BStr),
+pub struct ResolveArgs<'a> {
+    pub key: &'a BStr,
+    pub path: &'a Path,
+    pub dirs: &'a ProjectDirs,
+
+    pub task: Task<'a>,
+    pub resolved_task: &'a mut ResolvedTask,
+
+    pub config_stack: &'a ConfigStack,
+    pub store_queue: &'a mut Vec<(PathBuf, Config)>,
+    pub stack_queue: &'a mut Vec<PathBuf>,
+}
+
+impl<'a> ResolveArgs<'a> {
+    fn resolve_in_stack<T, F>(
+        &mut self,
+        mut f: F,
+        config_stack: &mut ConfigStack,
+    ) -> anyhow::Result<()>
+    where
+        F: FnMut(&T, &mut ResolveArgs) -> anyhow::Result<()>,
+        T: Resolve,
+    {
+        config_stack
+            .cursors()
+            .try_for_each(|cur| {
+                if T::resolved_task_mut_ref(&mut *self.resolved_task).is_some() {
+                    return ControlFlow::Break(Ok(()));
+                }
+
+                let (src, config) = config_stack
+                    .with_cursor(cur)
+                    .map_err(Err)
+                    .to_control_flow()?;
+
+                self.resolve_in_config(&mut f, src, config, config_stack)
+            })
+            .break_value()
+            .unwrap_or(Ok(()))?;
+
+        config_stack.store.extend(
+            self.store_queue
+                .drain(..)
+                .map(|(path, config)| (ConfigSource::File(path), config)),
+        );
+        config_stack
+            .stack
+            .extend(self.stack_queue.drain(..).map(ConfigSource::File));
+        Ok(())
+    }
+
+    fn resolve_in_config<T, F>(
+        &mut self,
+        mut f: F,
+        src: &ConfigSource,
+        config: &Config,
+        config_stack: &ConfigStack,
+    ) -> ControlFlow<anyhow::Result<()>>
+    where
+        F: FnMut(&T, &mut ResolveArgs) -> anyhow::Result<()>,
+        T: Resolve,
+    {
+        T::config_ref(config).iter().try_for_each(|(key, val)| {
+            if T::resolved_task_mut_ref(&mut *self.resolved_task).is_none() {
+                f(
+                    val,
+                    &mut ResolveArgs {
+                        key: key.as_bstr(),
+                        path: src.borrow(),
+                        dirs: self.dirs,
+                        task: self.task,
+                        resolved_task: self.resolved_task,
+                        config_stack,
+                        store_queue: self.store_queue,
+                        stack_queue: self.stack_queue,
+                    },
+                )
+                .map_err(Err)
+                .to_control_flow()
+            } else {
+                ControlFlow::Break(Ok(()))
+            }
+        })
+    }
+
+    fn expand_template_var(&self, name: &BStr, buf: &mut Vec<u8>) -> anyhow::Result<bool> {
+        Ok(match &self {
+            Self {
+                resolved_task:
+                    ResolvedTask {
+                        host: Some(host), ..
+                    },
+                ..
+            } if host.expand_template_var(name, self, buf)? => true,
+            Self {
+                resolved_task:
+                    ResolvedTask {
+                        repo: Some(repo), ..
+                    },
+                ..
+            } if repo.expand_template_var(name, self, buf)? => true,
+            Self {
+                resolved_task:
+                    ResolvedTask {
+                        tree: Some(tree), ..
+                    },
+                ..
+            } if tree.expand_template_var(name, self, buf)? => true,
+            Self {
+                resolved_task:
+                    ResolvedTask {
+                        open: Some(open), ..
+                    },
+                ..
+            } if open.expand_template_var(name, self, buf)? => true,
+
+            Self {
+                task: Task {
+                    host: Some(host), ..
+                },
+                ..
+            } if name == "host.name" => {
+                buf.extend_from_slice(host);
+                true
+            }
+            Self {
+                task: Task {
+                    repo: Some(repo), ..
+                },
+                ..
+            } if name == "repo.name" => {
+                buf.extend_from_slice(repo);
+                true
+            }
+            Self {
+                task: Task {
+                    tree: Some(tree), ..
+                },
+                ..
+            } if name == "tree.name" => {
+                buf.extend_from_slice(tree);
+                true
+            }
+            Self {
+                task: Task {
+                    open: Some(open), ..
+                },
+                ..
+            } if name == "open.name" => {
+                buf.extend_from_slice(open);
+                true
+            }
+
+            _ if name.starts_with_str("env.") => {
+                buf.extend_from_slice(
+                    env::var_os(name["env.".len()..].to_os_str()?)
+                        .unwrap()
+                        .as_bytes(),
+                );
+                true
+            }
+
+            _ if name.starts_with_str("dir.") => match &*name["dir.".len()..] {
+                b"config" => {
+                    buf.extend_from_slice(self.dirs.config_dir().as_os_str().as_bytes());
+                    true
+                }
+                b"data" => {
+                    buf.extend_from_slice(self.dirs.data_dir().as_os_str().as_bytes());
+                    true
+                }
+                _ => false,
+            },
+
+            _ => false,
+        })
+    }
 }

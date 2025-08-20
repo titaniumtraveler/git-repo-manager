@@ -1,7 +1,7 @@
 use bstr::{BStr, ByteSlice};
 use std::fmt::{self, Debug, Display, Write};
 
-#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Task<'a> {
     pub host: Option<&'a [u8]>,
     pub repo: Option<&'a [u8]>,

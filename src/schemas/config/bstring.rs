@@ -1,4 +1,4 @@
-use bstr::ByteSlice;
+use bstr::{BStr, ByteSlice};
 use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -39,7 +39,11 @@ impl Serialize for BString {
     where
         S: serde::Serializer,
     {
-        bstr::BStr::serialize(self.0.as_bstr(), serializer)
+        if serializer.is_human_readable() {
+            serializer.collect_str(self.0.as_bstr())
+        } else {
+            serializer.serialize_bytes(&self.0)
+        }
     }
 }
 
@@ -95,6 +99,12 @@ impl From<&str> for BString {
 impl From<&[u8]> for BString {
     fn from(value: &[u8]) -> Self {
         Self(value.to_owned())
+    }
+}
+
+impl From<&BStr> for BString {
+    fn from(value: &BStr) -> Self {
+        Self(value.to_owned().into())
     }
 }
 

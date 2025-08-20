@@ -1,7 +1,10 @@
 use crate::{
     schemas::{
-        config::merge::{Behavior, MergeEntry, OnlyIf},
-        utils::verbose::{self, VerboseEntry},
+        config::{
+            common::Common,
+            merge::{Behavior, MergeEntry, OnlyIf},
+        },
+        utils::verbose,
     },
     utils,
 };
@@ -14,13 +17,13 @@ use std::{
     collections::{BTreeMap, btree_map::Entry},
     fmt::Debug,
     mem,
-    os::unix::ffi::OsStringExt,
     path::{Path, PathBuf},
 };
 
 pub use self::{bstring::BString, host::Host, merge::Merge, open::Open, repo::Repo, tree::Tree};
 
 pub mod bstring;
+pub mod common;
 pub mod host;
 pub mod merge;
 pub mod open;
@@ -53,7 +56,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn default_config(env: &ProjectDirs) -> Self {
+    pub fn default_config(_env: &ProjectDirs) -> Self {
         const MERGE_DEFAULT: Merge = Merge {
             only_if: OnlyIf::NotPresent,
             behavior: Behavior::Replace,
@@ -66,17 +69,15 @@ impl Config {
                 storage.insert(
                     "default".into(),
                     Repo {
-                        name: Some(BString("repo/${host.name}/${repo.name}".into())),
-                        path: Some(BString(
-                            PathBuf::from_iter([env.data_dir(), "${entry.name}".as_ref()])
-                                .into_os_string()
-                                .into_vec(),
-                        )),
-                        default: repo::RepoDefault::from_short(true),
-                        merge: MERGE_DEFAULT,
-                        url: None,
-                        manifest: Some(BString("".into())),
-                        alias: Vec::new(),
+                        path: Some("$data-dir/repo/${host.name}/${repo.name}.git".into()),
+                        url: Some("${repo.name}".into()),
+                        common: Common {
+                            name: None,
+                            alias: Vec::new(),
+                            manifest: Some("$data_dir/repo/repo-config.toml".into()),
+                            default: true,
+                            merge: MERGE_DEFAULT,
+                        },
                     },
                 );
                 storage
@@ -87,19 +88,15 @@ impl Config {
                 tree.insert(
                     "default".into(),
                     Tree {
-                        name: Some(BString(
-                            "tree/${host.name}/${repo.name}/${tree.name}".into(),
-                        )),
-                        path: Some(BString(
-                            PathBuf::from_iter([env.data_dir(), "${entry.name}".as_ref()])
-                                .into_os_string()
-                                .into_vec(),
-                        )),
-                        default: <_>::from_short(true),
-                        merge: MERGE_DEFAULT,
-                        repo: None,
-                        manifest: Some(BString("".into())),
-                        alias: Vec::new(),
+                        path: Some("$data_dir/tree/${host.name}/${repo.name}/${tree.name}".into()),
+                        branch: Some("${tree.name}".into()),
+                        common: Common {
+                            name: Some("${host.name}/${repo.name}/${tree.name}".into()),
+                            alias: Vec::new(),
+                            manifest: Some("$data_dir/tree/tree-config.toml".into()),
+                            default: true,
+                            merge: MERGE_DEFAULT,
+                        },
                     },
                 );
 
@@ -110,12 +107,14 @@ impl Config {
     }
 
     pub fn from_file(path: &Path) -> anyhow::Result<Self> {
-        utils::read_toml_from_path(path).with_context(|| {
-            anyhow!(
-                "failed to read config file from `{path}`",
-                path = path.display()
-            )
-        })
+        utils::read_toml_from_path(path)
+            .map(Option::unwrap_or_default)
+            .with_context(|| {
+                anyhow!(
+                    "failed to read config file from `{path}`",
+                    path = path.display()
+                )
+            })
     }
 
     pub fn resolve_defaults(&mut self) {
@@ -141,10 +140,10 @@ impl Config {
         } = mem::take(&mut self.default);
 
         self.default = ConfigDefault {
-            host: host.or_else(|| find_default(&self.host, |e| e.default)),
-            repo: repo.or_else(|| find_default(&self.repo, |e| e.default.default)),
-            tree: tree.or_else(|| find_default(&self.tree, |e| e.default.default)),
-            open: open.or_else(|| find_default(&self.open, |e| e.default)),
+            host: host.or_else(|| find_default(&self.host, |e| e.common.default)),
+            repo: repo.or_else(|| find_default(&self.repo, |e| e.common.default)),
+            tree: tree.or_else(|| find_default(&self.tree, |e| e.common.default)),
+            open: open.or_else(|| find_default(&self.open, |e| e.common.default)),
         };
     }
 
@@ -207,7 +206,9 @@ pub struct ConfigDefault {
     pub open: Option<BString>,
 }
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Debug, Serialize, Deserialize, JsonSchema, Default, PartialEq, Eq, PartialOrd, Ord, Clone,
+)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 #[schemars(inline)]

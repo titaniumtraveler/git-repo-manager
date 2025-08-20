@@ -6,8 +6,15 @@ use std::{
     path::Path,
 };
 
-pub(crate) fn read_toml_from_path<T: DeserializeOwned>(path: &Path) -> anyhow::Result<T> {
-    let str = std::fs::read_to_string(path).with_context(|| format!("{}", path.display()))?;
+pub(crate) fn read_toml_from_path<T: DeserializeOwned>(path: &Path) -> anyhow::Result<Option<T>> {
+    let str = {
+        match std::fs::read_to_string(path) {
+            Ok(str) => Ok(str),
+            Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(err) => Err(err),
+        }
+    }
+    .with_context(|| format!("{}", path.display()))?;
     let config = toml::from_str(&str)?;
     Ok(config)
 }

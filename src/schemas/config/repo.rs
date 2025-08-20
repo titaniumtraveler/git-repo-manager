@@ -1,10 +1,16 @@
-use crate::schemas::{
-    config::{BString, Merge, merge::MergeEntry},
-    utils::verbose::{self, VerboseEntry},
+use crate::{
+    schemas::{
+        config::{BString, Config, Merge, common::Common, merge::MergeEntry},
+        utils::verbose::VerboseEntry,
+    },
+    state::resolve::{Resolve, ResolveArgs, ResolvedTask},
+    task::Task,
 };
+use anyhow::anyhow;
+use bstr::{BStr, ByteSlice};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::mem;
+use std::{collections::BTreeMap, mem, path::PathBuf};
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Default, Clone)]
 #[serde(rename_all = "kebab-case")]
@@ -13,12 +19,6 @@ use std::mem;
 #[schemars(inline)]
 #[schemars(transform = Self::transform_schema)]
 pub struct Repo {
-    /// unique identifier of the repo
-    /// - if none, derive from path
-    /// - if template, might point to multiple
-    #[serde(default)]
-    pub name: Option<BString>,
-
     /// path pointing to the repo
     /// - if template, potentially pointing to multiple
     /// - allows for `${entry/name}`
@@ -34,23 +34,8 @@ pub struct Repo {
     #[serde(default)]
     pub url: Option<BString>,
 
-    /// file describing the sub trees of the `tree` that contains multiple trees
-    /// - defaults to true if `path` references `${repo/*}`
-    /// - if true, derive from path
-    ///   - would be `~/projects/config.toml`
-    /// - if path template, that path template
-    ///   - if not absolute, relative to
-    #[serde(default)]
-    pub manifest: Option<BString>,
-
-    #[serde(default)]
-    pub alias: Vec<BString>,
-
-    #[serde(deserialize_with = "verbose::bool::deserialize", default)]
-    pub default: RepoDefault,
-
-    #[serde(default)]
-    pub merge: Merge,
+    #[serde(flatten)]
+    pub common: Common,
 }
 
 impl VerboseEntry<'_> for Repo {
@@ -58,104 +43,105 @@ impl VerboseEntry<'_> for Repo {
 
     fn from_short(name: Self::Short) -> Self {
         Self {
-            name: Some(name),
+            url: Some(name),
             ..Default::default()
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, JsonSchema, Default, Clone)]
-#[serde(rename_all = "kebab-case")]
-#[serde(deny_unknown_fields)]
-#[schemars(rename = "repo::default")]
-#[schemars(inline)]
-#[schemars(transform = Self::transform_schema)]
-pub struct RepoDefault {
-    #[serde(default)]
-    pub default: bool,
-
-    /// The default host of this repo
-    #[serde(default)]
-    pub host: Option<BString>,
-
-    /// The default tree of this repo
-    #[serde(default)]
-    pub tree: Option<BString>,
-
-    /// The default open of this repo
-    #[serde(default)]
-    pub open: Option<BString>,
-}
-
-impl VerboseEntry<'_> for RepoDefault {
-    type Short = bool;
-
-    fn from_short(default: Self::Short) -> Self {
-        Self {
-            default,
-            host: None,
-            tree: None,
-            open: None,
-        }
-    }
-}
-
-impl RepoDefault {
-    pub fn merge(
-        &mut self,
-        Self {
-            default,
-            host,
-            tree,
-            open,
-        }: Self,
-    ) {
-        let s = mem::take(self);
-        *self = Self {
-            default: default | s.default,
-            host: host.or(s.host),
-            tree: tree.or(s.tree),
-            open: open.or(s.open),
         }
     }
 }
 
 impl MergeEntry for Repo {
     fn merge_config(&self) -> &Merge {
-        &self.merge
+        &self.common.merge
     }
-
     fn merge_config_mut(&mut self) -> &mut Merge {
-        &mut self.merge
+        &mut self.common.merge
     }
 
     fn merge_entries(
         &mut self,
         Repo {
-            merge: _,
-            name,
             path,
             url,
-            manifest,
-            mut alias,
-            mut default,
+            mut common,
         }: Self,
     ) {
         let s = mem::take(self);
         *self = Self {
-            name: name.or(s.name),
             path: path.or(s.path),
             url: url.or(s.url),
-            manifest: manifest.or(s.manifest),
-            alias: {
-                alias.extend(s.alias);
-                alias
+            common: {
+                common.merge(s.common);
+                common
             },
-            default: {
-                default.merge(s.default);
-                default
-            },
-            merge: s.merge,
         }
+    }
+}
+
+impl Resolve for Repo {
+    fn common(&self) -> &Common {
+        &self.common
+    }
+
+    fn task_ref(task: Task<'_>) -> Option<&'_ [u8]> {
+        task.repo
+    }
+
+    fn task_ref_mut<'o, 'i>(task: &'o mut Task<'i>) -> &'o mut Option<&'i [u8]> {
+        &mut task.repo
+    }
+
+    fn resolved_task_mut_ref(resolved_task: &mut ResolvedTask) -> &mut Option<Self> {
+        &mut resolved_task.repo
+    }
+
+    fn resolved_task_new_mut_ref(resolved_task: &mut ResolvedTask) -> &mut Option<PathBuf> {
+        &mut resolved_task.new_repo
+    }
+
+    fn config_ref(config: &Config) -> &BTreeMap<BString, Self> {
+        &config.repo
+    }
+
+    fn expand_template_var(
+        &self,
+        name: &BStr,
+        _args: &ResolveArgs,
+        buf: &mut Vec<u8>,
+    ) -> anyhow::Result<bool> {
+        let mut f = |var: &Option<BString>, name| {
+            buf.extend_from_slice(
+                var.as_ref()
+                    .ok_or_else(|| anyhow!("{name} has to be set at this point"))?,
+            );
+            anyhow::Ok(true)
+        };
+
+        Ok(match name.as_bytes() {
+            b"repo.name" => f(&self.common.name, name)?,
+            b"repo.path" => f(&self.path, name)?,
+            b"repo.url" => f(&self.url, name)?,
+            _ => false,
+        })
+    }
+
+    fn expand(&self, args: &mut ResolveArgs<'_>) -> anyhow::Result<Self> {
+        let mut f = |val: &Option<BString>| {
+            anyhow::Ok(match val.as_deref() {
+                Some(str) => Some(self.template(str.as_bstr(), args)?),
+                None => None,
+            })
+        };
+
+        Ok(Self {
+            path: f(&self.path)?,
+            url: f(&self.url)?,
+            common: Common {
+                name: f(&self.common.name)?,
+                manifest: None,
+                alias: self.common.alias.clone(),
+                default: self.common.default,
+                merge: self.common.merge.clone(),
+            },
+        })
     }
 }

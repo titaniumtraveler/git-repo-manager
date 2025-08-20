@@ -27,7 +27,7 @@ default = ["bash"]
 
 [open.notes]
 command = ["bash"]
-working-directory = "${repo/file-path}/notes"
+directory = "${repo/file-path}/notes"
 
 [open.notes.merge]
 # only apply config entry if entry is present

@@ -30,9 +30,9 @@ impl Info {
         let Self { pretty, info } = self;
         match info {
             InfoKind::Config => {
-                let mut state = State::new();
+                let mut state = State::new()?;
                 state.init_defaults(&args)?;
-                write_json_to_stdout(&state.config.resolved_config, pretty)?;
+                write_json_to_stdout(&state.configs, pretty)?;
                 Ok(())
             }
 

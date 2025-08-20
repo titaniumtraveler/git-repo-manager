@@ -56,15 +56,14 @@ impl Cli {
                 .exit()
         };
         let task = Task::from(&*task.0);
-        println!("task: {task:?}");
+        eprintln!("task: {task:?}");
 
-        let mut state = State::new();
+        let mut state = State::new()?;
         state.init_defaults(&self.global_args)?;
-        println!("{:#?}", state.config.resolved_config);
 
         let mut resolved_task = ResolvedTask::default();
-        let mut resolved_config = std::mem::take(&mut state.config.resolved_config);
-        state.resolve(&task, &mut resolved_task, &mut resolved_config)?;
+        state.resolve(task, &mut resolved_task)?;
+        println!("{}", serde_json::to_string_pretty(&resolved_task)?);
         resolved_task.run()
     }
 }
