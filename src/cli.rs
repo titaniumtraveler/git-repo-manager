@@ -39,7 +39,10 @@ impl Cli {
                     clap_complete::generate(
                         shell,
                         &mut Cli::command(),
-                        env!("CARGO_PKG_NAME"),
+                        std::env::args()
+                            .nth(0)
+                            .as_deref()
+                            .unwrap_or(env!("CARGO_PKG_NAME")),
                         &mut io::stdout(),
                     );
                     Ok(())
