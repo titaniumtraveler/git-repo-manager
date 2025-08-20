@@ -18,9 +18,7 @@ impl<'a> Template<'a> {
 impl Display for Template<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let template = Template::new(self.bytes);
-        for token in template {
-            Debug::fmt(&token, f)?;
-        }
+        f.debug_list().entries(template).finish()?;
         Ok(())
     }
 }
@@ -106,8 +104,12 @@ impl<'a> Iterator for Template<'a> {
                             }
                         }
                     }
+                    Some(b'$') => {
+                        self.bytes = &str[1..];
+                        Some(Str(b"$"))
+                    }
                     Some(_) => {
-                        const SPECIAL: &[u8] = b" \t\n()<>[]|&;/";
+                        const SPECIAL: &[u8] = b" \t\n\"()<>[]|&;/";
                         let idx = str.find_byteset(SPECIAL).unwrap_or(str.len());
 
                         self.bytes = &str[idx..];
